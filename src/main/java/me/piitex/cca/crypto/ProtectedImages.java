@@ -79,6 +79,7 @@ public final class ProtectedImages {
     // One decoded picture per file, since the hubs draw every card again on each render. Null if it can't be read.
     public static Image load(Path file) {
         Path key = file.toAbsolutePath().normalize();
+        if (!Files.isRegularFile(key)) return null;
         try {
             long modified = Files.getLastModifiedTime(key).toMillis();
             long size = Files.size(key);

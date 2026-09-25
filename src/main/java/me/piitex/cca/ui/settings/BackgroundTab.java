@@ -16,7 +16,7 @@ import java.util.Arrays;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-// The Background tab. A live preview on top and the options for the selected type under it.
+// The Background tab. A live preview in a column on the left and the options for the selected type beside it.
 // Numbers and colors only update the preview (a redraw would drop a drag), toggles and the type
 // dropdown change which rows exist so those redraw the whole screen.
 final class BackgroundTab {
@@ -49,12 +49,13 @@ final class BackgroundTab {
     Element build(AppearanceSettings edited, double width, double height) {
         draft = edited;
         Container holder = Components.transparent(width, height);
-        preview = new BackgroundPreview(width);
+        preview = new BackgroundPreview(height);
         preview.show(draft, themeWindow.get());
         preview.element().setPosition(0, 0);
         holder.addElement(preview.element());
 
-        SettingsForm f = new SettingsForm(width, Math.max(0, height - BackgroundPreview.HEIGHT - GAP), scroll);
+        double formX = BackgroundPreview.WIDTH + GAP;
+        SettingsForm f = new SettingsForm(Math.max(0, width - formX), height, scroll);
         Type type = Type.of(draft.backgroundType.get());
         f.note("The preview is scaled down and runs the real effect. Save & Apply puts it behind the whole app.");
         themeLink.accept(f);
@@ -72,7 +73,7 @@ final class BackgroundTab {
             case IMAGE -> image(f);
         }
         Element form = f.finish();
-        form.setPosition(0, BackgroundPreview.HEIGHT + GAP);
+        form.setPosition(formX, 0);
         holder.addElement(form);
         return holder;
     }

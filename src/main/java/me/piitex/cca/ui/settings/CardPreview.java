@@ -4,6 +4,7 @@ import me.piitex.cca.config.AppearanceSettings;
 import me.piitex.cca.ui.CharacterCards;
 import me.piitex.cca.ui.CharacterCards.Face;
 import me.piitex.cca.ui.Components;
+import me.piitex.cca.ui.chat.ChatPreview;
 import me.piitex.engine.ui.Element;
 import me.piitex.engine.ui.containers.Container;
 import me.piitex.engine.ui.scroll.ScrollContainer;
@@ -13,8 +14,8 @@ import java.util.List;
 // The hub's real cards with made up characters, for Settings > Characters. A column beside the options with a
 // character and a folder stacked in it, scrolling when the window is too short for both. show() lays them out again on every edit.
 final class CardPreview {
-    // Wide enough for the widest card the settings allow.
-    static final double WIDTH = 272;
+    // The same width as every preview, wide enough for the widest card the settings allow.
+    static final double WIDTH = ChatPreview.WIDTH;
 
     private static final double PADDING = 16;
     private static final List<Face> FACES = List.of(new Face("Aria", "Aria", ""), new Face("Kai", "Kai", ""),

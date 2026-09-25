@@ -306,20 +306,21 @@ public class SettingsMenu implements ContentMenu {
         return theme;
     }
 
-    // The preview stays above the scrolling form so it's in view while a color is picked.
+    // The preview stays in a column beside the scrolling form so it's in view while a color is picked.
     private Element buildThemeBody(double width, double height) {
         AppTheme current = selected();
         double gap = 16;
         Container holder = Components.transparent(width, height);
-        preview = new ThemePreview(width);
+        preview = new ThemePreview(height);
         preview.show(current);
         preview.element().setPosition(0, 0);
         holder.addElement(preview.element());
 
-        SettingsForm f = new SettingsForm(width, Math.max(0, height - ThemePreview.HEIGHT - gap), scrollMemory);
+        double formX = ThemePreview.WIDTH + gap;
+        SettingsForm f = new SettingsForm(Math.max(0, width - formX), height, scrollMemory);
         buildThemeTab(f, current);
         Element form = f.finish();
-        form.setPosition(0, ThemePreview.HEIGHT + gap);
+        form.setPosition(formX, 0);
         holder.addElement(form);
         return holder;
     }
