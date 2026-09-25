@@ -4,6 +4,7 @@ import me.piitex.cca.theme.AppTheme;
 import me.piitex.cca.theme.AppTheme.Slot;
 import me.piitex.cca.ui.Components;
 import me.piitex.cca.ui.chat.ChatPreview;
+import me.piitex.engine.ui.Element;
 import me.piitex.engine.ui.color.Color;
 import me.piitex.engine.ui.color.LinearGradient;
 import me.piitex.engine.ui.containers.Container;
@@ -47,6 +48,8 @@ final class ThemePreview {
     private final ButtonOverlay accentButton, plainButton;
     // The engine's own controls, themed by handing them the theme being edited.
     private final List<Themeable> themed = new ArrayList<>();
+    // The ones with a tooltip, it's drawn in the colors of the theme being edited.
+    private final List<Element> tooltips = new ArrayList<>();
 
     private AppTheme theme;
     private int active;
@@ -97,6 +100,8 @@ final class ThemePreview {
         badge.setPosition(PADDING + width - 24, y);
         badge.getStyling().setCornerRadius(12f);
         panel.addElement(badge);
+        tooltips.add(badge);
+        badge.setTooltip("The accent gradient");
         y += 24 + GAP;
 
         bubble = surface(width, ROW);
@@ -128,6 +133,8 @@ final class ThemePreview {
         card.addElement(cardTitle);
         card.addElement(cardHint);
         panel.addElement(card);
+        tooltips.add(card);
+        card.setTooltip("Tooltips use the theme's tooltip colors");
         y += cardHeight + GAP;
 
         field = new TextFieldOverlay(width, ROW);
@@ -175,6 +182,8 @@ final class ThemePreview {
             accentButton.setText("Clicked " + clicks + (clicks == 1 ? " time" : " times"));
         });
         panel.addElement(accentButton);
+        tooltips.add(accentButton);
+        accentButton.setTooltip("Click me");
         y += ROW + GAP;
 
         plainButton = new ButtonOverlay("Button", 13f, Color.WHITE, width, ROW);
@@ -182,6 +191,8 @@ final class ThemePreview {
         plainButton.onAction(() -> plainButton.setText(plainButton.getText().equals("Button") ? "Clicked" : "Button"));
         panel.addElement(plainButton);
         themed.add(plainButton);
+        tooltips.add(plainButton);
+        plainButton.setTooltip("A plain button\nwith two lines");
         y += ROW + GAP;
 
         muted = new TextOverlay("Muted text and hints", 12f, Color.WHITE);
@@ -246,6 +257,8 @@ final class ThemePreview {
         plainButton.getStyling().setBorderThickness(0f);
         plainButton.getStyling().setCornerRadius((float) (ROW / 2));
         cardHint.setTextColor(hint);
+
+        for (Element element : tooltips) element.setTooltipTheme(theme);
 
         styleNav();
         styleCard();

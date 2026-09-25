@@ -12,6 +12,7 @@ import me.piitex.cca.ui.creator.CreatorMenu;
 import me.piitex.cca.ui.creator.UserCreatorMenu;
 import me.piitex.cca.ui.settings.ModelsMenu;
 import me.piitex.cca.ui.settings.SettingsMenu;
+import me.piitex.cca.ui.settings.UpdatesMenu;
 import me.piitex.engine.Window;
 import me.piitex.engine.WindowStyle;
 import me.piitex.engine.ui.CursorMode;
@@ -228,6 +229,7 @@ public class MainMenu {
         dropMenu();
         activeSection = section;
         if (section == Section.MODELS) openMenu = new ModelsMenu(this);
+        if (section == Section.UPDATES) openMenu = new UpdatesMenu(this);
         if (section == Section.SETTINGS) openMenu = new SettingsMenu(this);
         highlightActiveNav();
         renderContent();
