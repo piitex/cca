@@ -228,6 +228,12 @@ public class UserCreatorMenu extends CreatorMenu {
             } catch (IOException e) {
                 App.logger.error("Could not copy icon for user '{}'", id, e);
             }
+        } else if (editing != null) {
+            try {
+                user.clearIcon();
+            } catch (IOException e) {
+                App.logger.error("Could not remove the icon of user '{}'", id, e);
+            }
         }
 
         if (editing != null) {

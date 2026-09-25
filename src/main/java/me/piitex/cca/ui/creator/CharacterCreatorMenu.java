@@ -366,6 +366,12 @@ public class CharacterCreatorMenu extends CreatorMenu {
             } catch (IOException e) {
                 App.logger.error("Could not copy icon for character '{}'", id, e);
             }
+        } else if (editing != null) {
+            try {
+                character.clearIcon();
+            } catch (IOException e) {
+                App.logger.error("Could not remove the icon of character '{}'", id, e);
+            }
         }
         if (userIconFile != null) {
             try {
@@ -374,7 +380,11 @@ public class CharacterCreatorMenu extends CreatorMenu {
                 App.logger.error("Could not copy the user icon for character '{}'", id, e);
             }
         } else {
-            character.setUserIconPath("");
+            try {
+                character.clearUserIcon();
+            } catch (IOException e) {
+                App.logger.error("Could not remove the user icon of character '{}'", id, e);
+            }
         }
 
         if (editing != null) {

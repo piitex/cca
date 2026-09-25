@@ -1,5 +1,6 @@
 package me.piitex.cca.background;
 
+import me.piitex.cca.crypto.ProtectedImages;
 import me.piitex.engine.gl.renderer.Renderer;
 import me.piitex.engine.ui.background.AbstractBackground;
 import me.piitex.engine.ui.color.Color;
@@ -83,7 +84,7 @@ public final class ImageBackground extends AbstractBackground {
         }
         if (file == null) return;
         try {
-            image = Image.Companion.makeFromEncoded(Files.readAllBytes(file));
+            image = Image.Companion.makeFromEncoded(ProtectedImages.read(file));
         } catch (IOException | RuntimeException e) {
             image = null;
         }

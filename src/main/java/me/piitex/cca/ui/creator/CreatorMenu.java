@@ -1,5 +1,6 @@
 package me.piitex.cca.ui.creator;
 
+import me.piitex.cca.crypto.ProtectedImages;
 import me.piitex.cca.theme.Palette;
 import me.piitex.cca.ui.Components;
 import me.piitex.cca.ui.ContentMenu;
@@ -253,9 +254,9 @@ public abstract class CreatorMenu implements ContentMenu {
         preview.getStyling().setCornerRadius(14f);
         preview.getStyling().setBorderThickness(1f);
         preview.getStyling().setBorderColor(theme.getContainerBorder());
-        if (icon != null) {
+        ImageOverlay image = icon == null ? null : ProtectedImages.overlay(icon, ICON_PREVIEW_SIZE, ICON_PREVIEW_SIZE);
+        if (image != null) {
             Components.fill(preview, Color.TRANSPARENT);
-            ImageOverlay image = new ImageOverlay(icon.toString(), ICON_PREVIEW_SIZE, ICON_PREVIEW_SIZE);
             image.getStyling().setCornerRadius(14f);
             preview.addElement(image);
         } else {

@@ -3,6 +3,7 @@ package me.piitex.cca.model;
 import me.piitex.cca.App;
 import me.piitex.cca.crypto.EncryptedConfig;
 import me.piitex.cca.crypto.FileCrypter;
+import me.piitex.cca.crypto.ProtectedImages;
 import me.piitex.engine.config.Config;
 import me.piitex.engine.io.AppEnvironment;
 
@@ -20,11 +21,36 @@ public final class PrivateFolders {
     private PrivateFolders() {
     }
 
-    // Encrypts characters and users saved by older versions. The hubs only open them when they're shown,
-    // so this runs at startup to make sure none are left as plain text.
+    // Encrypts characters and users saved by older versions, and their icons. The hubs only open them when they're
+    // shown, so this runs at startup to make sure none are left as plain text.
     public static void upgradeAll(AppEnvironment environment) {
-        ids(environment, "characters", "character", "character.conf");
-        ids(environment, "users", "user", "user.conf");
+        protectIcons(environment, "characters", "character", "character.conf", "icon-path", "character.png", Character.ICON_FILE);
+        protectIcons(environment, "characters", "character", "character.conf", "user-icon-path", "user.png", Character.USER_ICON_FILE);
+        protectIcons(environment, "users", "user", "user.conf", "icon-path", "user.png", User.ICON_FILE);
+    }
+
+    // Icons saved as plain image files are encrypted where they are and the config points at the new file.
+    private static void protectIcons(AppEnvironment environment, String root, String kind, String configName, String key, String defaultName, String protectedName) {
+        FileCrypter crypter = crypter(environment);
+        for (String id : ids(environment, root, kind, configName)) {
+            try {
+                Path folder = environment.getDirectory(root, crypter.scramble(kind + ":" + id));
+                Config config = EncryptedConfig.loadOrCreate(crypter, folder.resolve(configName), c -> {
+                });
+                String stored = config.getString(key, "");
+                Path icon = stored.isEmpty() ? folder.resolve(defaultName) : Path.of(stored);
+                if (!Files.isRegularFile(icon)) icon = folder.resolve(icon.getFileName()); // The folder may have been renamed.
+                if (!Files.isRegularFile(icon) || ProtectedImages.isProtected(icon)) continue;
+                Path dest = folder.resolve(protectedName);
+                ProtectedImages.write(crypter, dest, icon);
+                if (!icon.toAbsolutePath().normalize().equals(dest.toAbsolutePath().normalize())) Files.delete(icon);
+                config.set(key, dest.toString());
+                EncryptedConfig.save(crypter, config);
+                App.logger.info("Encrypted the icon of a {}.", kind);
+            } catch (IOException | RuntimeException e) {
+                App.logger.error("Could not encrypt the icon of a {}", kind, e);
+            }
+        }
     }
 
     static FileCrypter crypter(AppEnvironment environment) {

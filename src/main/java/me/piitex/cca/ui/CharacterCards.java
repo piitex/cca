@@ -1,6 +1,7 @@
 package me.piitex.cca.ui;
 
 import me.piitex.cca.config.AppearanceSettings;
+import me.piitex.cca.crypto.ProtectedImages;
 import me.piitex.cca.model.HubItem;
 import me.piitex.cca.theme.Palette;
 import me.piitex.engine.ui.CursorMode;
@@ -11,7 +12,6 @@ import me.piitex.engine.ui.overlays.IconOverlay;
 import me.piitex.engine.ui.overlays.ImageOverlay;
 import me.piitex.engine.ui.overlays.TextOverlay;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -166,10 +166,9 @@ public final class CharacterCards {
         portrait.getStyling().setBorderThickness(0f);
         portrait.setCursorMode(CursorMode.POINTER);
 
-        Path iconPath = Path.of(character.iconPath());
-        if (Files.isRegularFile(iconPath)) {
+        ImageOverlay icon = ProtectedImages.overlay(Path.of(character.iconPath()), size, size);
+        if (icon != null) {
             Components.fill(portrait, Color.TRANSPARENT);
-            ImageOverlay icon = new ImageOverlay(iconPath.toString(), size, size);
             icon.getStyling().setCornerRadius(radius);
             icon.setCursorMode(CursorMode.POINTER);
             portrait.addElement(icon);

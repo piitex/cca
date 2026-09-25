@@ -3,6 +3,7 @@ package me.piitex.cca.model;
 import me.piitex.cca.App;
 import me.piitex.cca.crypto.EncryptedConfig;
 import me.piitex.cca.crypto.FileCrypter;
+import me.piitex.cca.crypto.ProtectedImages;
 import me.piitex.engine.config.Config;
 import me.piitex.engine.io.AppEnvironment;
 
@@ -10,7 +11,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -24,6 +24,9 @@ import java.util.stream.Stream;
 // Everything is encrypted. The character is in character.conf and each chat is its own file in chats/, both inside a folder
 // named by scrambling the id (see PrivateFolders), the id itself is kept in the config.
 public class Character implements HubItem {
+    static final String ICON_FILE = "icon.enc";
+    static final String USER_ICON_FILE = "user-icon.enc";
+
     private final String id;
     private final Path directory;
     private final Config config;
@@ -185,14 +188,16 @@ public class Character implements HubItem {
         save();
     }
 
-    // Copies the image into the character's folder so the icon survives the original being moved.
+    // Stores the image encrypted in the character's folder so the icon survives the original being moved.
     public void setIconFile(Path sourceFile) throws IOException {
-        String name = sourceFile.getFileName().toString();
-        int dot = name.lastIndexOf('.');
-        String extension = dot >= 0 ? name.substring(dot + 1) : "png";
-        Path dest = directory.resolve("icon." + extension);
-        Files.copy(sourceFile, dest, StandardCopyOption.REPLACE_EXISTING);
+        Path dest = directory.resolve(ICON_FILE);
+        ProtectedImages.write(crypter, dest, sourceFile);
         setIconPath(dest.toString());
+    }
+
+    public void clearIcon() throws IOException {
+        Files.deleteIfExists(Path.of(getIconPath()));
+        setIconPath("");
     }
 
     public Map<String, String> getLorebook() {
@@ -260,14 +265,16 @@ public class Character implements HubItem {
         save();
     }
 
-    // Copies the image into the character's folder, next to the character's own icon.
+    // Stores the image encrypted in the character's folder, next to the character's own icon.
     public void setUserIconFile(Path sourceFile) throws IOException {
-        String name = sourceFile.getFileName().toString();
-        int dot = name.lastIndexOf('.');
-        String extension = dot >= 0 ? name.substring(dot + 1) : "png";
-        Path dest = directory.resolve("user-icon." + extension);
-        Files.copy(sourceFile, dest, StandardCopyOption.REPLACE_EXISTING);
+        Path dest = directory.resolve(USER_ICON_FILE);
+        ProtectedImages.write(crypter, dest, sourceFile);
         setUserIconPath(dest.toString());
+    }
+
+    public void clearUserIcon() throws IOException {
+        Files.deleteIfExists(Path.of(getUserIconPath()));
+        setUserIconPath("");
     }
 
     public Map<String, String> getUserLorebook() {
