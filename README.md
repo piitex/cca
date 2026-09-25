@@ -16,6 +16,9 @@ cd libs/
 ./add_to_maven.sh
 ```
 
+**Issues**: Please report any app or engine issues. I'm stuck on MacOS for the next month and I'm unable to test and verify and Windows and Linux.
+All I can do is verify that it works on my computer and that's it.
+
 ## AI Transparency
 AI was used in developing this. I originally made character-chat-app and I didn't want to spend a year on this port.
 I used AI to convert the project and to structure the UI.
