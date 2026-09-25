@@ -38,6 +38,8 @@ public abstract class ItemHub<T extends HubItem> {
     private CharacterCards.Look look = CharacterCards.Look.of(App.instance.getAppearance());
 
     private static final Color CARD_BORDER = CharacterCards.BORDER;
+    // Seconds the folder popout takes to close.
+    private static final float POPOUT_CLOSE_SECONDS = 0.22f;
 
     private final HubLayout<T> layout;
 
@@ -48,6 +50,8 @@ public abstract class ItemHub<T extends HubItem> {
     // Where the user dragged the popout to, kept while it's rebuilt. Null centers it.
     private double[] popoutAt;
     private ReorderableGrid topGrid;
+    // Where each folder's card is on the hub, the popout shrinks back into it.
+    private final Map<Folder, Container> folderCards = new HashMap<>();
 
     protected ItemHub(MainMenu owner, List<T> loaded, HubLayout.Keys keys) {
         this.owner = owner;
@@ -119,8 +123,10 @@ public abstract class ItemHub<T extends HubItem> {
 
         Map<Container, Entry<T>> byCard = new HashMap<>();
         List<Container> cards = new ArrayList<>();
+        folderCards.clear();
         for (Entry<T> entry : layout.topLevel()) {
             Container card = entry.isFolder() ? folderCard(entry.folder()) : card(entry.item());
+            if (entry.isFolder()) folderCards.put(entry.folder(), card);
             card.setContextMenu(entry.isFolder() ? folderMenu(entry.folder()) : itemMenu(entry.item()));
             byCard.put(card, entry);
             cards.add(card);
@@ -192,7 +198,7 @@ public abstract class ItemHub<T extends HubItem> {
         if (popoutFolder != null && hubVisible && layout.folders().contains(popoutFolder)) {
             showPopout(false);
         } else {
-            closePopout();
+            closePopout(false);
         }
     }
 
@@ -201,12 +207,15 @@ public abstract class ItemHub<T extends HubItem> {
         showPopout(true);
     }
 
-    private void closePopout() {
+    // Fades out when the user closes it, the hub going away or a rebuild closes it right away.
+    private void closePopout(boolean animate) {
         popoutFolder = null;
         popoutAt = null;
         ModalContainer old = popout;
         popout = null;
-        if (old != null) old.close();
+        if (old == null) return;
+        if (animate) old.close();
+        else old.closeImmediately();
     }
 
     // A folder's cards in a see through panel over the hub, not the sidebar. Dragging a card out of the panel and
@@ -217,7 +226,7 @@ public abstract class ItemHub<T extends HubItem> {
         popout = null; // So closing the old one isn't taken as the user closing the popout.
         if (old != null) {
             popoutAt = new double[]{popoutPanel.getX(), popoutPanel.getY()};
-            old.close();
+            old.closeImmediately();
         }
 
         List<T> members = layout.members(folder);
@@ -246,6 +255,7 @@ public abstract class ItemHub<T extends HubItem> {
         ModalContainer modal = new ModalContainer(panel);
         modal.setBackdropColor(new Color(0f, 0f, 0f, 0.22f));
         if (!animate) modal.setFadeSeconds(0f);
+        modal.setCloseAnimation(closeAnimation(folder));
         modal.onClose(() -> {
             if (popout == modal) {
                 popout = null;
@@ -261,7 +271,7 @@ public abstract class ItemHub<T extends HubItem> {
 
         ButtonOverlay done = Components.accentButton("Done", 13f, 80, 34);
         done.setPosition(panelWidth - pad - 80, pad - 2);
-        done.onAction(this::closePopout);
+        done.onAction(() -> closePopout(true));
         panel.addElement(done);
 
         if (!sorted) {
@@ -290,6 +300,25 @@ public abstract class ItemHub<T extends HubItem> {
         if (popoutAt != null) panel.moveTo(popoutAt[0], popoutAt[1]);
     }
 
+    // What plays when the popout is closed, picked in the settings.
+    private ModalContainer.CloseAnimation closeAnimation(Folder folder) {
+        return switch (App.instance.getAppearance().popoutClose.get()) {
+            case "none" -> null;
+            case "fade" -> ModalContainer.CloseAnimation.fade(POPOUT_CLOSE_SECONDS);
+            default -> (modal, onFinished) -> {
+                // Asked when it closes, the card may have moved since the popout opened.
+                Container card = folderCards.get(folder);
+                if (card == null) {
+                    ModalContainer.CloseAnimation.fade(POPOUT_CLOSE_SECONDS).play(modal, onFinished);
+                    return;
+                }
+                double x = card.getAbsoluteX() + card.getWidth() / 2, y = card.getAbsoluteY() + card.getHeight() / 2;
+                float endScale = (float) Math.min(0.5, card.getWidth() / modal.getContent().getWidth());
+                ModalContainer.CloseAnimation.shrink(POPOUT_CLOSE_SECONDS, x, y, endScale).play(modal, onFinished);
+            };
+        };
+    }
+
     private ReorderableGrid buildPopoutGrid(ModalContainer modal, Container panel, Folder folder, List<T> members, double gridWidth, double gridHeight) {
         ReorderableGrid grid = new ReorderableGrid(gridWidth, gridHeight, look.width(), look.height(), look.gap());
         // Leaving the panel takes a card out, not leaving the grid. The header is part of the popout.
@@ -306,7 +335,7 @@ public abstract class ItemHub<T extends HubItem> {
         grid.setItems(cards);
         grid.onItemClick(card -> {
             T item = byCard.get(card);
-            closePopout();
+            closePopout(true);
             open(item);
         });
 

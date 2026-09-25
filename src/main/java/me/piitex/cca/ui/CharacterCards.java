@@ -6,6 +6,8 @@ import me.piitex.cca.model.HubItem;
 import me.piitex.cca.theme.Palette;
 import me.piitex.engine.ui.CursorMode;
 import me.piitex.engine.ui.color.Color;
+import me.piitex.engine.ui.color.LinearGradient;
+import me.piitex.engine.ui.color.Paint;
 import me.piitex.engine.ui.containers.Container;
 import me.piitex.engine.ui.icons.Feather;
 import me.piitex.engine.ui.overlays.IconOverlay;
@@ -173,14 +175,56 @@ public final class CharacterCards {
             icon.setCursorMode(CursorMode.POINTER);
             portrait.addElement(icon);
         } else {
-            Components.fill(portrait, Components.accentColorFor(character.id()));
-            String displayName = character.displayName();
-            String initial = displayName.isBlank() ? "?" : displayName.substring(0, 1).toUpperCase();
-            TextOverlay initialText = new TextOverlay(initial, initialSize, Color.WHITE);
-            initialText.setPosition((size - initialText.getWidth()) / 2.0, (size - initialText.getHeight()) / 2.0);
-            initialText.setCursorMode(CursorMode.POINTER);
-            portrait.addElement(initialText);
+            styledFace(portrait, character, size, radius, initialSize);
         }
         return portrait;
+    }
+
+    // No icon: a diagonal gradient from the character's color, soft circles, a gloss on the top and the initial with a shadow.
+    private static void styledFace(Container portrait, Face character, double size, float radius, float initialSize) {
+        Color[] colors = Components.accentPairFor(character.id());
+        LinearGradient gradient = new LinearGradient(colors[0], colors[1]);
+        portrait.getStyling().setBackgroundColor(gradient);
+        portrait.getStyling().setHoverColor(gradient);
+
+        // The circles stay inside the portrait so the rounded corners never have anything sticking out of them.
+        Color bubble = new Color(1f, 1f, 1f, 0.12f);
+        portrait.addElement(decoration(size * 0.6, size * 0.6, size * 0.38, size * 0.38, (float) (size * 0.3), bubble));
+        portrait.addElement(decoration(size * 0.24, size * 0.24, size * 0.1, size * 0.1, (float) (size * 0.12), new Color(1f, 1f, 1f, 0.09f)));
+
+        // Fades out before the bottom, so the rounded bottom corners of this piece are never seen.
+        portrait.addElement(decoration(size, size * 0.5, 0, 0, radius, new LinearGradient(new Color(1f, 1f, 1f, 0.24f), new Color(1f, 1f, 1f, 0f))));
+
+        String displayName = character.displayName();
+        String initial = displayName.isBlank() ? "?" : displayName.substring(0, 1).toUpperCase();
+        double shadow = Math.max(1.5, size * 0.012);
+
+        TextOverlay initialShadow = initialText(initial, initialSize, new Color(0f, 0f, 0f, 0.28f));
+        initialShadow.setPosition((size - initialShadow.getWidth()) / 2.0 + shadow, (size - initialShadow.getHeight()) / 2.0 + shadow);
+        portrait.addElement(initialShadow);
+
+        TextOverlay initialFace = initialText(initial, initialSize, Color.WHITE);
+        initialFace.setPosition((size - initialFace.getWidth()) / 2.0, (size - initialFace.getHeight()) / 2.0);
+        portrait.addElement(initialFace);
+    }
+
+    // A shape behind the initial. It stays the same color on hover and lets the card have the click.
+    private static Container decoration(double width, double height, double x, double y, float radius, Paint paint) {
+        Container shape = new Container(width, height);
+        shape.getStyling().setBackgroundColor(paint);
+        shape.getStyling().setHoverColor(paint);
+        shape.getStyling().setCornerRadius(radius);
+        shape.getStyling().setBorderThickness(0f);
+        shape.setCursorMode(CursorMode.POINTER);
+        shape.setPosition(x, y);
+        return shape;
+    }
+
+    // Pinned, or the theme's text color replaces it and a light theme puts dark text on the gradient.
+    private static TextOverlay initialText(String initial, float size, Color color) {
+        TextOverlay text = new TextOverlay(initial, size, color);
+        text.setTextColor(color);
+        text.setCursorMode(CursorMode.POINTER);
+        return text;
     }
 }

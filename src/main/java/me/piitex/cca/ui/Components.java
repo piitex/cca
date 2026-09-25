@@ -218,6 +218,12 @@ public final class Components {
         return hsvToRgb(hue, 0.55f, 0.85f);
     }
 
+    // Two colors for a gradient on a character without an icon, a light one and a deeper one a little along the color wheel.
+    public static Color[] accentPairFor(String id) {
+        float hue = (Math.abs(id.hashCode()) % 360) / 360f;
+        return new Color[]{hsvToRgb(hue, 0.5f, 0.95f), hsvToRgb((hue + 0.09f) % 1f, 0.72f, 0.6f)};
+    }
+
     private static Color hsvToRgb(float h, float s, float v) {
         int i = (int) (h * 6);
         float f = h * 6 - i;

@@ -5,6 +5,8 @@ import me.piitex.cca.ui.Components;
 import me.piitex.engine.ui.Element;
 import me.piitex.engine.ui.containers.Container;
 
+import java.util.List;
+
 // The Characters tab. The hub's cards in a column on the left and the options beside them. Every control only restyles the
 // preview, nothing here changes which rows exist so the screen never needs a redraw.
 final class CharactersTab {
@@ -53,6 +55,12 @@ final class CharactersTab {
         f.section("Open folders");
         f.row("Columns", "The most cards side by side in an open folder. Fewer fit when the window is narrow.", SettingsUi.intSpinner(draft.popoutColumns, 2, 6, 1, changed));
         f.row("Opacity", "How solid the folder panel is. Lower lets the hub show through.", SettingsUi.decSpinner(draft.popoutOpacity, 0.1, 1.0, 0.05, 2, changed));
+        f.row("Close animation", "How an open folder goes away. Shrink folds it back into its card.", SettingsUi.choice(draft.popoutClose,
+                List.of("shrink", "fade", "none"), id -> switch (id) {
+                    case "shrink" -> "Shrink into folder";
+                    case "fade" -> "Fade";
+                    default -> "None";
+                }, changed));
         f.endCard();
     }
 

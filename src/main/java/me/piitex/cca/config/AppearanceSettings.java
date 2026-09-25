@@ -106,6 +106,8 @@ public final class AppearanceSettings extends Settings {
     public final Setting<Boolean> folderPortraits = bool("characters.folder.portraits", true);
     public final Setting<Integer> popoutColumns = num("characters.popout.columns", 4);
     public final Setting<Double> popoutOpacity = dec("characters.popout.opacity", 0.55);
+    // shrink, fade or none, see ui.ItemHub.
+    public final Setting<String> popoutClose = str("characters.popout.close", "shrink");
 
     // The window, see App.applyWindowSettings. Without vsync the frame rate is capped at maxFps.
     public final Setting<Boolean> vsync = bool("general.vsync", true);
