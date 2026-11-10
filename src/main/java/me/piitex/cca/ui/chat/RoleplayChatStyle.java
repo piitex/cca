@@ -1,6 +1,7 @@
 package me.piitex.cca.ui.chat;
 
 import me.piitex.cca.config.AppearanceSettings;
+import me.piitex.cca.model.Character;
 import me.piitex.cca.model.ChatMessage;
 import me.piitex.cca.model.Role;
 import me.piitex.cca.theme.AppTheme;
@@ -43,7 +44,8 @@ final class RoleplayChatStyle implements ChatStyle {
     private final AvatarLook avatars;
     private final Color dialogue;
     private final Color action;
-    private final MessageBody.Look look = new MessageBody.Look(BODY_FONT, theme.getText(), BODY_LINE_SPACING, this::styleSpans);
+    private final MessageBody.Look look = new MessageBody.Look(BODY_FONT, Palette.text(), BODY_LINE_SPACING, this::styleSpans);
+    private final MessageBody.Kept bodies = new MessageBody.Kept(look);
 
     RoleplayChatStyle(AppearanceSettings settings) {
         avatars = AvatarLook.of(settings);
@@ -57,7 +59,7 @@ final class RoleplayChatStyle implements ChatStyle {
     }
 
     @Override
-    public Element buildMessage(ChatMessage message, Speaker speaker, Speaker user, double width, MessageActions actions) {
+    public Element buildMessage(ChatMessage message, Character character, Speaker speaker, Speaker user, double width, MessageActions actions) {
         boolean fromUser = message.getSender() == Role.USER;
         double innerWidth = Math.max(0, width - 2 * CARD_PADDING);
 
@@ -66,15 +68,14 @@ final class RoleplayChatStyle implements ChatStyle {
                 : ChatAvatars.character(speaker, avatars.portraitWidth(), avatars.portraitHeight(), avatars.shape(), avatars.image());
 
         String name = fromUser ? ChatAvatars.userName(user) : speaker.name();
-        TextOverlay nameText = new TextOverlay(name.isBlank() ? "Unnamed" : name, NAME_FONT, theme.getText());
+        TextOverlay nameText = new TextOverlay(name.isBlank() ? "Unnamed" : name, NAME_FONT, Palette.text());
         nameText.setBold(true);
 
         SeparatorOverlay divider = new SeparatorOverlay(innerWidth);
-        divider.setLineColor(theme.getContainerBorder());
+        divider.setLineColor(Palette.border());
 
         boolean editing = actions.editing() != null;
-        MessageBody body = editing ? actions.editing().body() : new MessageBody(look, message.getContent(), false);
-        if (!editing && actions.edit() != null) body.onDoubleClick(actions.edit());
+        MessageBody body = editing ? actions.editing().body() : bodies.get(message.getContent(), innerWidth, actions);
         body.fit(innerWidth);
 
         double pictureWidth = picture == null ? 0 : picture.getWidth() + HEADER_GAP;
@@ -87,9 +88,9 @@ final class RoleplayChatStyle implements ChatStyle {
         Container card = new Container(width, cardHeight);
         card.getStyling().setCornerRadius(18f);
         card.getStyling().setBorderThickness(editing ? 1.5f : 1f);
-        card.getStyling().setBorderColor(editing ? Palette.accent() : theme.getContainerBorder());
+        card.getStyling().setBorderColor(editing ? Palette.accent() : Palette.border());
         // The user's cards get the same tint as their text bubbles.
-        Components.fill(card, fromUser ? Palette.tint() : theme.getFieldBackground());
+        Components.fill(card, fromUser ? Palette.tint() : Palette.field());
 
         if (picture != null) {
             picture.setPosition(CARD_PADDING, CARD_PADDING);
@@ -120,6 +121,11 @@ final class RoleplayChatStyle implements ChatStyle {
     @Override
     public MessageBody.Look look() {
         return look;
+    }
+
+    @Override
+    public void startRedraw() {
+        bodies.startPass();
     }
 
     @Override

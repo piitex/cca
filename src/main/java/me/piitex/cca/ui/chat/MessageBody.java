@@ -1,11 +1,16 @@
 package me.piitex.cca.ui.chat;
 
+import me.piitex.cca.ui.GrammarChecker;
 import me.piitex.engine.scheduler.Scheduler;
 import me.piitex.engine.ui.color.Color;
+import me.piitex.engine.ui.color.Paint;
 import me.piitex.engine.ui.overlays.RichTextAreaOverlay;
 import me.piitex.engine.ui.text.TextSpanStyler;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.function.IntConsumer;
 
 /**
@@ -18,7 +23,51 @@ import java.util.function.IntConsumer;
 final class MessageBody extends RichTextAreaOverlay {
 
     // styler can be null
-    record Look(float fontSize, Color textColor, float lineSpacing, TextSpanStyler styler) {
+    record Look(float fontSize, Paint textColor, float lineSpacing, TextSpanStyler styler) {
+    }
+
+    /**
+     * Laying text out is most of the time it takes to draw a chat again, so a body is kept and given out again when
+     * the same text is wanted at the same width. Two messages can say the same thing, so every one in a pass gets a body of its own.
+     */
+    static final class Kept {
+        private static final int MAX = 1500;
+
+        private record Key(String content, double width, int copy) {
+        }
+
+        private final Look look;
+        private final Map<Key, MessageBody> bodies = new LinkedHashMap<>(64, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<Key, MessageBody> eldest) {
+                return size() > MAX;
+            }
+        };
+        // How many times each text and width was asked for in this pass.
+        private final Map<Key, Integer> asked = new HashMap<>();
+
+        Kept(Look look) {
+            this.look = look;
+        }
+
+        // Before the messages are drawn again.
+        void startPass() {
+            asked.clear();
+        }
+
+        // Still has to be fit to the width, which is quick when it already was. A message without actions is the reply
+        // still coming in or a preview, its text keeps changing so it isn't kept.
+        MessageBody get(String content, double width, MessageActions actions) {
+            MessageBody body;
+            if (actions == MessageActions.NONE) {
+                body = new MessageBody(look, content, false);
+            } else {
+                int copy = asked.merge(new Key(content, width, 0), 1, Integer::sum) - 1;
+                body = bodies.computeIfAbsent(new Key(content, width, copy), key -> new MessageBody(look, content, false));
+            }
+            body.onDoubleClick(actions.edit()); // Every time, what it edits is a different message after a delete.
+            return body;
+        }
     }
 
     private static final long DOUBLE_CLICK_NANOS = 400_000_000L;
@@ -29,6 +78,7 @@ final class MessageBody extends RichTextAreaOverlay {
     private long lastPressNanos = Long.MIN_VALUE;
     private double lastPressX, lastPressY;
 
+    // The content is shown as it is. ChatMenu fills in the placeholders for the messages on screen and hands the editor the original.
     MessageBody(Look look, String content, boolean editable) {
         super(0, 0, 10, 0, look.fontSize(), look.textColor());
         setText(content);
@@ -41,6 +91,7 @@ final class MessageBody extends RichTextAreaOverlay {
         getStyling().setHoverColor(Color.TRANSPARENT);
         getStyling().setBorderThickness(0f);
         setReadOnly(!editable);
+        if (editable) setChecker(GrammarChecker.shared());
         setCaretColor(editable ? look.textColor() : Color.TRANSPARENT);
     }
 

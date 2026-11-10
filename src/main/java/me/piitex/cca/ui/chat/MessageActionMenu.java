@@ -40,6 +40,8 @@ final class MessageActionMenu {
         if (actions.copy() != null) menu.add("Copy", actions.copy());
         if (actions.edit() != null) menu.add(item("Edit", () -> actions.edit().accept(-1), actions.newest() ? ChatShortcuts.EDIT : null));
         if (actions.regenerate() != null) menu.add(item("Regenerate", actions.regenerate(), ChatShortcuts.REGENERATE));
+        if (actions.undo() != null) menu.add(item("Undo and edit prompt", actions.undo(), ChatShortcuts.UNDO));
+        if (actions.branch() != null) menu.add("Branch into new chat", actions.branch());
         if (actions.delete() != null) {
             menu.addSeparator();
             menu.add(item("Delete", actions.delete(), actions.newest() ? ChatShortcuts.DELETE : null));

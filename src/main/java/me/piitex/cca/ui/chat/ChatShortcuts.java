@@ -10,7 +10,7 @@ enum ChatShortcuts {
     CONTINUE("Continue", GLFW.GLFW_KEY_K, true, "K"),
     EDIT("Edit", GLFW.GLFW_KEY_E, true, "E"),
     DELETE("Delete", GLFW.GLFW_KEY_D, true, "D"),
-    UNDO("Undo response", GLFW.GLFW_KEY_U, true, "U"),
+    UNDO("Undo and edit prompt",GLFW.GLFW_KEY_U, true, "U"),
     NEW_CHAT("New chat", GLFW.GLFW_KEY_N, true, "N"),
     PREVIOUS("Previous response", GLFW.GLFW_KEY_LEFT, false, "Alt+Left"),
     NEXT("Next response", GLFW.GLFW_KEY_RIGHT, false, "Alt+Right"),

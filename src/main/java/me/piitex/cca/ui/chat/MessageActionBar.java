@@ -12,7 +12,7 @@ import me.piitex.engine.ui.theme.Theme;
 
 import static me.piitex.cca.ui.Components.CONTROL_SIZE;
 
-// The row of round buttons under a message: reply picker, copy, edit, regenerate, continue, delete.
+// The row of round buttons under a message: reply picker, copy, edit, regenerate, continue, undo, branch, delete.
 // Every style uses this so the buttons are always the same and in the same order.
 final class MessageActionBar {
     static final double HEIGHT = 32;
@@ -31,7 +31,7 @@ final class MessageActionBar {
         Runnable edit = actions.edit() == null ? null : () -> actions.edit().accept(-1);
 
         int buttons = 0;
-        for (Object action : new Object[]{actions.copy(), edit, actions.regenerate(), actions.continueReply(), actions.delete()}) {
+        for (Object action : new Object[]{actions.copy(), edit, actions.regenerate(), actions.continueReply(), actions.undo(), actions.branch(), actions.delete()}) {
             if (action != null) buttons++;
         }
         if (buttons == 0 && variants == null) return null;
@@ -45,7 +45,7 @@ final class MessageActionBar {
         if (variants != null) {
             x = placeArrow(bar, Feather.CHEVRON_LEFT, variants.index() > 0, variants.previous(), ChatShortcuts.PREVIOUS.tooltip(), x);
 
-            TextOverlay counter = new TextOverlay((variants.index() + 1) + "/" + variants.count(), 12f, theme.getPlaceholderText());
+            TextOverlay counter = new TextOverlay((variants.index() + 1) + "/" + variants.count(), 12f, Palette.muted());
             counter.setPosition(x + (COUNTER_WIDTH - counter.getWidth()) / 2.0, (HEIGHT - counter.getHeight()) / 2.0);
             bar.addElement(counter);
             x += COUNTER_WIDTH + GAP;
@@ -57,6 +57,8 @@ final class MessageActionBar {
         x = place(bar, Feather.EDIT, Components.CONTROL_EDIT, Components.CONTROL_EDIT_HOVER, edit, keys ? ChatShortcuts.EDIT.tooltip() : "Edit", x);
         x = place(bar, Feather.REFRESH_CW, Components.CONTROL_REGEN, Components.CONTROL_REGEN_HOVER, actions.regenerate(), ChatShortcuts.REGENERATE.tooltip(), x);
         x = place(bar, Feather.CHEVRONS_RIGHT, Components.CONTROL_CONTINUE, Components.CONTROL_CONTINUE_HOVER, actions.continueReply(), ChatShortcuts.CONTINUE.tooltip(), x);
+        x = place(bar, Feather.ROTATE_CCW, Components.CONTROL_UNDO, Components.CONTROL_UNDO_HOVER, actions.undo(), ChatShortcuts.UNDO.tooltip(), x);
+        x = place(bar, Feather.GIT_BRANCH, Components.CONTROL_BRANCH, Components.CONTROL_BRANCH_HOVER, actions.branch(), "Branch into a new chat", x);
         place(bar, Feather.TRASH, Components.CONTROL_DANGER, Components.CONTROL_DANGER_HOVER, actions.delete(), keys ? ChatShortcuts.DELETE.tooltip() : "Delete", x);
         return bar;
     }
@@ -81,10 +83,10 @@ final class MessageActionBar {
     // At either end the arrow is dimmed and does nothing, so the counter doesn't jump around.
     private static double placeArrow(Container bar, IconAsset icon, boolean enabled, Runnable action, String tooltip, double x) {
         Theme theme = Components.theme();
-        Color placeholder = theme.getPlaceholderText();
+        Color placeholder = Palette.mutedColor();
         Color dim = new Color(placeholder.getR(), placeholder.getG(), placeholder.getB(), 0.35f);
         Container button = enabled
-                ? Components.iconButton(icon, tooltip, theme.getText(), Palette.tintStrong(), action)
+                ? Components.iconButton(icon, tooltip, Palette.textColor(), Palette.tintStrong(), action)
                 : Components.iconButton(icon, null, dim, Color.TRANSPARENT, () -> {});
         button.setPosition(x, 0);
         bar.addElement(button);

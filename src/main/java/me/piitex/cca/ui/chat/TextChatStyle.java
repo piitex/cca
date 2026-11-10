@@ -1,6 +1,7 @@
 package me.piitex.cca.ui.chat;
 
 import me.piitex.cca.config.AppearanceSettings;
+import me.piitex.cca.model.Character;
 import me.piitex.cca.model.ChatMessage;
 import me.piitex.cca.model.Role;
 import me.piitex.cca.theme.Palette;
@@ -9,6 +10,9 @@ import me.piitex.engine.ui.Element;
 import me.piitex.engine.ui.containers.Container;
 import me.piitex.engine.ui.overlays.TextOverlay;
 import me.piitex.engine.ui.theme.Theme;
+
+import java.util.HashMap;
+import java.util.Map;
 
 // Avatar and a bubble that fits the text. The character is on the left in a field colored bubble,
 // the user is mirrored on the right with a light accent tint.
@@ -22,7 +26,10 @@ final class TextChatStyle implements ChatStyle {
     private static final float MESSAGE_FONT = 14f;
     private static final double ACTIONS_TOP_GAP = 2;
 
-    private final MessageBody.Look look = new MessageBody.Look(MESSAGE_FONT, theme.getText(), 3f, null);
+    private final MessageBody.Look look = new MessageBody.Look(MESSAGE_FONT, Palette.text(), 3f, null);
+    private final MessageBody.Kept bodies = new MessageBody.Kept(look);
+    // The width of each message's longest line, measuring them again on every redraw adds up.
+    private final Map<String, Double> lineWidths = new HashMap<>();
     private final AvatarLook avatars;
 
     TextChatStyle(AppearanceSettings settings) {
@@ -30,15 +37,14 @@ final class TextChatStyle implements ChatStyle {
     }
 
     @Override
-    public Element buildMessage(ChatMessage message, Speaker speaker, Speaker user, double width, MessageActions actions) {
+    public Element buildMessage(ChatMessage message, Character character, Speaker speaker, Speaker user, double width, MessageActions actions) {
         boolean fromUser = message.getSender() == Role.USER;
         boolean editing = actions.editing() != null;
 
         // Snug bubble while reading, full width while editing so it doesn't resize as they type.
         double maxTextWidth = Math.max(40, Math.min(MAX_BUBBLE_WIDTH, width * 0.72) - 2 * BUBBLE_PAD_X);
         double textWidth = editing ? maxTextWidth : Math.min(maxTextWidth, measureLongestLine(message.getContent()));
-        MessageBody text = editing ? actions.editing().body() : new MessageBody(look, message.getContent(), false);
-        if (!editing && actions.edit() != null) text.onDoubleClick(actions.edit());
+        MessageBody text = editing ? actions.editing().body() : bodies.get(message.getContent(), textWidth, actions);
         text.fit(textWidth);
 
         double bubbleWidth = textWidth + 2 * BUBBLE_PAD_X;
@@ -65,9 +71,9 @@ final class TextChatStyle implements ChatStyle {
             Components.fill(bubble, Palette.tintStrong());
             bubble.getStyling().setBorderThickness(0f);
         } else {
-            Components.fill(bubble, theme.getFieldBackground());
+            Components.fill(bubble, Palette.field());
             bubble.getStyling().setBorderThickness(1f);
-            bubble.getStyling().setBorderColor(theme.getContainerBorder());
+            bubble.getStyling().setBorderColor(Palette.border());
         }
         if (editing) {
             bubble.getStyling().setBorderThickness(1.5f);
@@ -96,16 +102,24 @@ final class TextChatStyle implements ChatStyle {
     }
 
     @Override
+    public void startRedraw() {
+        bodies.startPass();
+        if (lineWidths.size() > 3000) lineWidths.clear();
+    }
+
+    @Override
     public double messageGap() {
         return 14;
     }
 
     // The widest line so a short message gets a small bubble. +2 so the last word doesn't wrap from rounding.
     private double measureLongestLine(String content) {
-        double widest = 0;
-        for (String line : content.split("\n", -1)) {
-            widest = Math.max(widest, new TextOverlay(line, MESSAGE_FONT, theme.getText()).getWidth());
-        }
-        return widest + 2;
+        return lineWidths.computeIfAbsent(content, text -> {
+            double widest = 0;
+            for (String line : text.split("\n", -1)) {
+                widest = Math.max(widest, new TextOverlay(line, MESSAGE_FONT, Palette.text()).getWidth());
+            }
+            return widest + 2;
+        });
     }
 }

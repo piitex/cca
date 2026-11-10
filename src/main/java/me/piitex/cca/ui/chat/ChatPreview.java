@@ -4,8 +4,10 @@ import me.piitex.cca.App;
 import me.piitex.cca.background.Backgrounds;
 import me.piitex.cca.background.ImageBackground;
 import me.piitex.cca.config.AppearanceSettings;
+import me.piitex.cca.model.Character;
 import me.piitex.cca.model.ChatMessage;
 import me.piitex.cca.model.Role;
+import me.piitex.cca.theme.Palette;
 import me.piitex.cca.ui.Components;
 import me.piitex.engine.ui.Element;
 import me.piitex.engine.ui.containers.Container;
@@ -44,7 +46,7 @@ public final class ChatPreview {
         this.height = height;
         root = Components.panel(WIDTH, height);
         root.getStyling().setBorderThickness(1f);
-        root.getStyling().setBorderColor(Components.theme().getContainerBorder());
+        root.getStyling().setBorderColor(Palette.border());
         image.setCornerRadius(Components.PANEL_RADIUS);
         image.setReferenceSize((float) panelWidth, (float) panelHeight, true);
         root.setBackground(image);
@@ -61,7 +63,7 @@ public final class ChatPreview {
         thumb = Components.panel(thumbWidth, thumbHeight);
         thumb.getStyling().setCornerRadius(10f);
         thumb.getStyling().setBorderThickness(1f);
-        thumb.getStyling().setBorderColor(Components.theme().getContainerBorder());
+        thumb.getStyling().setBorderColor(Palette.border());
         thumbImage.setCornerRadius(10f);
         thumb.setBackground(thumbImage);
         thumb.setPosition((WIDTH - thumbWidth) / 2.0, PADDING);
@@ -101,15 +103,15 @@ public final class ChatPreview {
         ChatStyleType type = ChatStyleType.fromId(settings.chatStyle.get());
         ChatStyle style = type.create(settings);
         List<ChatMessage> messages = type == ChatStyleType.ROLEPLAY
-                ? List.of(new ChatMessage(Role.ASSISTANT, "Aria looks up. *She smiles.* \"You made it!\""),
-                new ChatMessage(Role.USER, "Sorry, I got a little lost. *I sit down.*"))
-                : List.of(new ChatMessage(Role.ASSISTANT, "You made it! I was starting to worry."),
-                new ChatMessage(Role.USER, "Sorry, I got a little lost."));
+                ? List.of(new ChatMessage(Role.ASSISTANT, null, "Aria looks up. *She smiles.* \"You made it!\""),
+                new ChatMessage(Role.USER, null, "Sorry, I got a little lost. *I sit down.*"))
+                : List.of(new ChatMessage(Role.ASSISTANT, null, "You made it! I was starting to worry."),
+                new ChatMessage(Role.USER, null, "Sorry, I got a little lost."));
 
         double rowWidth = Math.max(0, list.getWidth() - list.getScrollBarStyle().getThickness() - 2 * list.getScrollBarStyle().getMargin());
         double y = 0;
         for (ChatMessage message : messages) {
-            Element row = style.buildMessage(message, SPEAKER, null, rowWidth, MessageActions.NONE);
+            Element row = style.buildMessage(message, message.getCharacter(), SPEAKER, null, rowWidth, MessageActions.NONE);
             row.setPosition(0, y);
             list.addElement(row);
             y += row.getHeight() + style.messageGap();
