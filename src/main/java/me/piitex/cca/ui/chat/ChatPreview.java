@@ -27,7 +27,7 @@ public final class ChatPreview {
     public static final double WIDTH = 340;
 
     private static final double PADDING = 16;
-    private static final String EXAMPLE = "data/images/avatar_example.jpeg";
+    private static final String EXAMPLE = "data/images/avatar_example.png";
     private static final Speaker SPEAKER = new Speaker("preview", "Aria", exampleAvatar());
 
     private static final double THUMB_GAP = 14;
@@ -123,7 +123,7 @@ public final class ChatPreview {
     private static String exampleAvatar() {
         Path file = App.environment.getDataPath(EXAMPLE);
         if (!Files.isRegularFile(file)) {
-            try (InputStream in = ChatPreview.class.getResourceAsStream("/images/avatar_example.jpeg")) {
+            try (InputStream in = ChatPreview.class.getResourceAsStream("/images/avatar_example.png")) {
                 if (in == null) return "";
                 Files.createDirectories(file.getParent());
                 Files.copy(in, file);
