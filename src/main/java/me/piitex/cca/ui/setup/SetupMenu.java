@@ -4,7 +4,6 @@ import me.piitex.cca.App;
 import me.piitex.cca.background.Backgrounds;
 import me.piitex.cca.crypto.FileCrypter;
 import me.piitex.cca.theme.Palette;
-import me.piitex.cca.theme.Themes;
 import me.piitex.cca.ui.MainMenu;
 import me.piitex.engine.Window;
 import me.piitex.engine.WindowStyle;
@@ -35,11 +34,11 @@ public class SetupMenu {
     }
 
     static Color mutedText() {
-        return Themes.current().getPlaceholderText();
+        return Palette.mutedColor();
     }
 
     static Color divider() {
-        return withAlpha(Themes.current().getText(), 0.10f);
+        return withAlpha(Palette.textColor(), 0.10f);
     }
 
     static Color footerText() {
@@ -49,7 +48,7 @@ public class SetupMenu {
 
     // The text color at a faint opacity, for outlines and fills that have to work on light and dark themes.
     static Color faint(float alpha) {
-        return withAlpha(Themes.current().getText(), alpha);
+        return withAlpha(Palette.textColor(), alpha);
     }
 
     private static Color lighter(Color c) {

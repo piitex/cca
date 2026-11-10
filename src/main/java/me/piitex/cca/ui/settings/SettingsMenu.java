@@ -19,7 +19,6 @@ import me.piitex.engine.ui.containers.Container;
 import me.piitex.engine.ui.icons.Feather;
 import me.piitex.engine.ui.image.IconAsset;
 import me.piitex.engine.ui.overlays.ButtonOverlay;
-import me.piitex.engine.ui.overlays.ColorPickerOverlay;
 import me.piitex.engine.ui.overlays.SpinnerOverlay;
 import me.piitex.engine.ui.overlays.TextFieldOverlay;
 import me.piitex.engine.ui.overlays.TextFlowOverlay;
@@ -90,7 +89,6 @@ public class SettingsMenu implements ContentMenu {
     }
 
     private static final Slot[] SWATCH_SLOTS = {Slot.WINDOW, Slot.PANEL, Slot.ACCENT, Slot.ACCENT_END, Slot.TEXT};
-    private static final double COLOR_WIDTH = 150;
     private static final double NAME_WIDTH = 240;
 
     private final AppearanceSettings draft = App.instance.getAppearance().copy();
@@ -116,7 +114,7 @@ public class SettingsMenu implements ContentMenu {
 
     public SettingsMenu(MainMenu owner) {
         this.owner = owner;
-        this.background = new BackgroundTab(() -> selected().get(Slot.WINDOW), this::linkRows, scrollMemory, this::backgroundChanged, this::redraw);
+        this.background = new BackgroundTab(() -> selected().fresh(Slot.WINDOW), this::linkRows, scrollMemory, this::backgroundChanged, this::redraw);
         this.chat = new ChatTab(draft, scrollMemory, this::changed, this::redraw);
         this.characters = new CharactersTab(draft, scrollMemory, this::changed);
         this.general = new GeneralTab(draft, scrollMemory, this::changed, this::redraw, this::resetAll);
@@ -413,15 +411,9 @@ public class SettingsMenu implements ContentMenu {
         f.endCard();
     }
 
+    // A color, a gradient, a gradient that moves or a rainbow.
     private void colorRow(SettingsForm f, AppTheme edited, Slot slot, String help) {
-        ColorPickerOverlay picker = new ColorPickerOverlay(COLOR_WIDTH, CONTROL_HEIGHT, edited.get(slot));
-        // The window can't be see through, there's nothing behind it.
-        picker.setAlphaEnabled(slot != Slot.WINDOW);
-        picker.onChange(color -> {
-            edited.set(slot, color);
-            edited(edited);
-        });
-        f.row(slot.label(), help, picker);
+        PaintEditor.rows(f, edited, slot, help, () -> edited(edited), this::redraw);
     }
 
     // Restyles the preview and the theme's row in place. A redraw would close the color picker mid drag.
@@ -562,7 +554,7 @@ public class SettingsMenu implements ContentMenu {
 
     private static void paintSwatches(Container[] swatches, AppTheme theme) {
         for (int i = 0; i < swatches.length; i++) {
-            Components.fill(swatches[i], theme.get(SWATCH_SLOTS[i]));
+            Components.fill(swatches[i], theme.fresh(SWATCH_SLOTS[i]));
             // A gray ring keeps a swatch visible when it matches the row's background.
             swatches[i].getStyling().setBorderColor(new Color(0.5f, 0.5f, 0.5f, 0.55f));
         }

@@ -37,7 +37,7 @@ final class BackgroundPreview {
         this.height = height;
         root = new Container(WIDTH, height);
         root.getStyling().setBorderThickness(1f);
-        root.getStyling().setBorderColor(Components.theme().getContainerBorder());
+        root.getStyling().setBorderColor(Palette.border());
         root.getStyling().setCornerRadius(8f);
 
         // Scale particle counts by area so the preview looks as dense as the real window.
@@ -55,7 +55,7 @@ final class BackgroundPreview {
     }
 
     // themeWindow is shown under the effect, it's the window color of the theme that will be selected.
-    void show(AppearanceSettings settings, Color themeWindow) {
+    void show(AppearanceSettings settings, Paint themeWindow) {
         Type type = Type.of(settings.backgroundType.get());
         if (type != shownType) {
             shownType = type;
@@ -98,7 +98,7 @@ final class BackgroundPreview {
         TextOverlay activeText = new TextOverlay("Characters", 12f, Palette.accent());
         activeText.setPosition(10, (26 - activeText.getHeight()) / 2.0);
         active.addElement(activeText);
-        TextOverlay idle = new TextOverlay("Models", 12f, theme.getPlaceholderText());
+        TextOverlay idle = new TextOverlay("Models", 12f, Palette.muted());
         idle.setPosition(18, 10 + 26 + 8 + (26 - idle.getHeight()) / 2.0);
         sidebar.addElement(idle);
 
@@ -106,14 +106,14 @@ final class BackgroundPreview {
         Container card = surface(cardWidth, 44, Palette.panel(0.92f));
         card.setPosition(mockWidth - INSET - cardWidth, mockHeight - INSET - 44);
         card.getStyling().setBorderThickness(1f);
-        card.getStyling().setBorderColor(theme.getContainerBorder());
+        card.getStyling().setBorderColor(Palette.border());
         mock.addElement(card);
-        TextOverlay message = new TextOverlay(cardWidth >= 170 ? "Panels sit over the background" : "A message", 12f, theme.getText());
+        TextOverlay message = new TextOverlay(cardWidth >= 170 ? "Panels sit over the background" : "A message", 12f, Palette.text());
         message.setPosition(12, (44 - message.getHeight()) / 2.0);
         card.addElement(message);
     }
 
-    private static Container surface(double width, double height, Color color) {
+    private static Container surface(double width, double height, Paint color) {
         Container c = new Container(width, height);
         Components.fill(c, color);
         c.getStyling().setBorderThickness(0f);

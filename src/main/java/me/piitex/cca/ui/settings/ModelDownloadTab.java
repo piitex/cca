@@ -226,7 +226,7 @@ final class ModelDownloadTab {
         row.getStyling().setBackgroundColor(SettingsUi.cardColor());
         row.getStyling().setHoverColor(Palette.rowHover());
         row.getStyling().setBorderThickness(1f);
-        row.getStyling().setBorderColor(theme.getContainerBorder());
+        row.getStyling().setBorderColor(Palette.border());
         Runnable open = () -> {
             openRepo(new HuggingFace.Link(result.id(), "main", null));
             redraw.run();
@@ -235,7 +235,7 @@ final class ModelDownloadTab {
 
         double chevron = 16;
         IconOverlay arrow = new IconOverlay(Feather.CHEVRON_RIGHT, chevron, chevron);
-        arrow.setTint(theme.getPlaceholderText());
+        arrow.setTint(Palette.mutedColor());
         arrow.setPosition(width - CARD_PADDING - chevron, (height - chevron) / 2.0);
         SettingsUi.clickable(arrow, open);
         row.addElement(arrow);
@@ -244,8 +244,8 @@ final class ModelDownloadTab {
                 + (result.updated().isEmpty() ? "" : ", updated " + result.updated())
                 + (result.gated() ? ", needs a login" : "");
         double textWidth = width - 2 * CARD_PADDING - chevron - 12;
-        TextOverlay name = new TextOverlay(fit(result.id(), textWidth, 15f), 15f, theme.getText());
-        TextOverlay detail = new TextOverlay(fit(meta, textWidth, 12f), 12f, result.gated() ? Components.WARN : theme.getPlaceholderText());
+        TextOverlay name = new TextOverlay(fit(result.id(), textWidth, 15f), 15f, Palette.text());
+        TextOverlay detail = new TextOverlay(fit(meta, textWidth, 12f), 12f, result.gated() ? Components.WARN : Palette.muted());
         double block = name.getHeight() + 3 + detail.getHeight();
         name.setPosition(CARD_PADDING, (height - block) / 2.0);
         detail.setPosition(CARD_PADDING, (height - block) / 2.0 + name.getHeight() + 3);
@@ -381,7 +381,7 @@ final class ModelDownloadTab {
     }
 
     private static double measure(String text, float size) {
-        return new TextOverlay(text, size, Components.theme().getText()).getWidth();
+        return new TextOverlay(text, size, Palette.text()).getWidth();
     }
 
     private static String count(long n) {

@@ -41,7 +41,7 @@ final class SettingsFooter {
         reset.onAction(onResetTab);
         row.addElement(reset);
 
-        status = new TextOverlay("", 13f, theme.getPlaceholderText());
+        status = new TextOverlay("", 13f, Palette.muted());
         status.setPosition(0, (height - status.getHeight()) / 2.0);
         row.addElement(status);
     }
@@ -61,8 +61,8 @@ final class SettingsFooter {
         } else {
             status.setText("");
         }
-        save.getStyling().setBackgroundColor(dirty ? Palette.accent() : theme.getButtonBackground());
-        save.getStyling().setHoverColor(dirty ? Palette.accentHover() : theme.getButtonHoverBackground());
-        save.setTextColor(dirty ? Color.WHITE : theme.getPlaceholderText());
+        save.getStyling().setBackgroundColor(dirty ? Palette.accent() : Palette.button());
+        save.getStyling().setHoverColor(dirty ? Palette.accentHover() : Palette.buttonHover());
+        save.setTextColor(dirty ? Color.WHITE : Palette.muted());
     }
 }

@@ -400,7 +400,7 @@ final class BackendTab {
     // What's being done now, and a bar that's filled as far as the steps have got. The stripes show it hasn't stalled.
     private static Element progressBar(double width, String step, double progress) {
         Container box = Components.transparent(width, 40);
-        TextOverlay label = new TextOverlay(step + "...", 13f, Components.theme().getText());
+        TextOverlay label = new TextOverlay(step + "...", 13f, Palette.text());
         box.addElement(label);
 
         ProgressBarOverlay bar = new ProgressBarOverlay(width, 8);

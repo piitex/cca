@@ -32,12 +32,16 @@ import me.piitex.engine.ui.overlays.ToggleSwitchOverlay;
 import me.piitex.engine.ui.theme.Theme;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -128,6 +132,8 @@ public class ModelsMenu implements ContentMenu {
 
     // The parts of the plan card that update in place. Null while the Hardware tab isn't showing.
     private TextOverlay planPercent;
+    // The import's "Copying..." line, changed in place so a copy doesn't rebuild the whole page over and over.
+    private TextFlowOverlay addStatus;
     private TextOverlay planLayers, planGpu, planSystem, planCost, planCaption, planWarning;
     private Container planBarFill;
     private double planBarWidth;
@@ -165,6 +171,7 @@ public class ModelsMenu implements ContentMenu {
     public Element render(double width, double height) {
         scrollMemory.capture(); // The old form is still showing until this replaces it.
         planPercent = null;
+        addStatus = null;
         shareAddress = null;
         footer = null;
 
@@ -348,7 +355,10 @@ public class ModelsMenu implements ContentMenu {
         find.onAction(() -> goToTab(Tab.DOWNLOAD));
         buttons.addElement(find);
         f.place(buttons, addMessage == null ? 24 : 8);
-        if (addMessage != null) f.note(addMessage);
+        if (addMessage != null) {
+            addStatus = new TextFlowOverlay(addMessage, f.width, 13f, Palette.muted());
+            f.place(addStatus, 18);
+        }
 
         f.section("Selected model");
         if (selected == null) {
@@ -371,11 +381,11 @@ public class ModelsMenu implements ContentMenu {
 
     private Element buildEmptyModels(double width) {
         Container box = SettingsUi.card(width, 84);
-        TextOverlay title = new TextOverlay("No models found", 15f, theme.getText());
+        TextOverlay title = new TextOverlay("No models found", 15f, Palette.text());
         title.setPosition(CARD_PADDING, 18);
         box.addElement(title);
         TextFlowOverlay hint = new TextFlowOverlay("Add a .gguf file with the button below, or find one on the Download tab.",
-                Math.max(0, width - 2 * CARD_PADDING), 12f, theme.getPlaceholderText());
+                Math.max(0, width - 2 * CARD_PADDING), 12f, Palette.muted());
         hint.setPosition(CARD_PADDING, 18 + title.getHeight() + 4);
         box.addElement(hint);
         return box;
@@ -434,11 +444,14 @@ public class ModelsMenu implements ContentMenu {
         Thread.ofVirtual().name("model-copy").start(() -> {
             String failure = null;
             try {
+                long total = 0;
+                for (Path file : files) total += Files.size(file);
+                long[] copied = {0};
                 for (Path file : files) {
                     Path target = directory.resolve(file.getFileName().toString());
                     // A half copied file mustn't show up as a model.
                     Path part = target.resolveSibling(target.getFileName() + ".part");
-                    Files.copy(file, part, StandardCopyOption.REPLACE_EXISTING);
+                    copyWithProgress(file, part, copied, total, name);
                     Files.move(part, target, StandardCopyOption.REPLACE_EXISTING);
                 }
             } catch (IOException e) {
@@ -456,6 +469,33 @@ public class ModelsMenu implements ContentMenu {
                 }
             });
         });
+    }
+
+    // Models are gigabytes, so the message shows how far along the copy is or it looks like the app froze.
+    private void copyWithProgress(Path source, Path target, long[] copied, long total, String name) throws IOException {
+        long[] lastShown = {System.nanoTime()};
+        // Only one update waits for the render thread at a time, so a busy disk or window can't pile them up.
+        AtomicBoolean pending = new AtomicBoolean();
+        byte[] buffer = new byte[1 << 20];
+        try (InputStream in = Files.newInputStream(source);
+             OutputStream out = Files.newOutputStream(target, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+            int read;
+            while ((read = in.read(buffer)) > 0) {
+                out.write(buffer, 0, read);
+                copied[0] += read;
+                long now = System.nanoTime();
+                if (now - lastShown[0] < 500_000_000L || !pending.compareAndSet(false, true)) continue;
+                lastShown[0] = now;
+                int percent = total <= 0 ? 0 : (int) (copied[0] * 100 / total);
+                String progress = "Copying " + name + "... " + percent + "% (" + formatSize(copied[0]) + " of " + formatSize(total) + ")";
+                Scheduler.runLater(() -> {
+                    pending.set(false);
+                    if (closed || addMessage == null || !addMessage.startsWith("Copying ")) return;
+                    addMessage = progress;
+                    if (addStatus != null) addStatus.setText(progress);
+                });
+            }
+        }
     }
 
     // Hardware tab
@@ -522,7 +562,7 @@ public class ModelsMenu implements ContentMenu {
         Container card = SettingsUi.card(width, 0);
         double y = 18;
 
-        TextOverlay title = new TextOverlay("GPU memory usage", 15f, theme.getText());
+        TextOverlay title = new TextOverlay("GPU memory usage", 15f, Palette.text());
         title.setPosition(CARD_PADDING, y);
         card.addElement(title);
 
@@ -533,7 +573,7 @@ public class ModelsMenu implements ContentMenu {
 
         TextFlowOverlay explain = new TextFlowOverlay(
                 "How much of your GPU's memory the model may use. The layers that fit are loaded onto the GPU and the rest run from system memory.",
-                inner - 70, 12f, theme.getPlaceholderText());
+                inner - 70, 12f, Palette.muted());
         explain.setPosition(CARD_PADDING, y);
         card.addElement(explain);
         y += explain.getHeight() + 14;
@@ -554,7 +594,7 @@ public class ModelsMenu implements ContentMenu {
         double barHeight = 10;
         planBarWidth = inner;
         Container track = new Container(inner, barHeight);
-        Components.fill(track, theme.getContainerBorder());
+        Components.fill(track, Palette.border());
         track.getStyling().setBorderThickness(0f);
         track.getStyling().setCornerRadius((float) (barHeight / 2));
         track.setPosition(CARD_PADDING, y);
@@ -570,10 +610,10 @@ public class ModelsMenu implements ContentMenu {
         String[] labels = {"On GPU", "GPU memory", "System memory", "Cost per layer"};
         TextOverlay[] values = new TextOverlay[4];
         for (int i = 0; i < 4; i++) {
-            TextOverlay label = new TextOverlay(labels[i], 12f, theme.getPlaceholderText());
+            TextOverlay label = new TextOverlay(labels[i], 12f, Palette.muted());
             label.setPosition(CARD_PADDING + i * columnWidth, y);
             card.addElement(label);
-            values[i] = new TextOverlay("-", 16f, theme.getText());
+            values[i] = new TextOverlay("-", 16f, Palette.text());
             values[i].setPosition(CARD_PADDING + i * columnWidth, y + label.getHeight() + 3);
             card.addElement(values[i]);
         }
@@ -583,7 +623,7 @@ public class ModelsMenu implements ContentMenu {
         planCost = values[3];
         y += 12 + 3 + 16 + 12 + 14;
 
-        planCaption = new TextFlowOverlay("", inner, 12f, theme.getPlaceholderText());
+        planCaption = new TextFlowOverlay("", inner, 12f, Palette.muted());
         planCaption.setPosition(CARD_PADDING, y);
         card.addElement(planCaption);
         planWarning = new TextFlowOverlay("", inner, 12f, Components.WARN);
@@ -803,7 +843,7 @@ public class ModelsMenu implements ContentMenu {
         f.section("Command");
         Path model = ModelLibrary.resolve(draft);
         String command = String.join(" ", ServerArgs.build(Path.of("llama-server"), model != null ? model : Path.of("model.gguf"), draft, currentPlan()));
-        f.custom(new TextFlowOverlay(command, Math.max(0, f.width - 2 * CARD_PADDING), 12f, theme.getPlaceholderText()));
+        f.custom(new TextFlowOverlay(command, Math.max(0, f.width - 2 * CARD_PADDING), 12f, Palette.muted()));
         f.endCard();
     }
 

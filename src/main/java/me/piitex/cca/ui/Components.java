@@ -7,6 +7,7 @@ import me.piitex.engine.ui.CursorMode;
 import me.piitex.engine.ui.Element;
 import me.piitex.engine.ui.color.Color;
 import me.piitex.engine.ui.color.LinearGradient;
+import me.piitex.engine.ui.color.Paint;
 import me.piitex.engine.ui.containers.Container;
 import me.piitex.engine.ui.containers.ModalContainer;
 import me.piitex.engine.ui.image.IconAsset;
@@ -17,9 +18,11 @@ import me.piitex.engine.ui.layout.VerticalLayout;
 import me.piitex.engine.ui.overlays.ButtonOverlay;
 import me.piitex.engine.ui.overlays.CheckBoxOverlay;
 import me.piitex.engine.ui.overlays.IconOverlay;
+import me.piitex.engine.ui.overlays.RichTextAreaOverlay;
 import me.piitex.engine.ui.overlays.TextFieldOverlay;
 import me.piitex.engine.ui.overlays.TextFlowOverlay;
 import me.piitex.engine.ui.overlays.TextOverlay;
+import me.piitex.engine.ui.scroll.ScrollContainer;
 import me.piitex.engine.ui.theme.Theme;
 import me.piitex.engine.ui.theme.ThemeManager;
 
@@ -41,7 +44,11 @@ public final class Components {
     public static final Color CONTROL_REGEN_HOVER = new Color(0.72f, 0.55f, 0.95f, 0.20f);
     public static final Color CONTROL_CONTINUE = new Color(0.95f, 0.72f, 0.35f, 1f);
     public static final Color CONTROL_CONTINUE_HOVER = new Color(0.95f, 0.72f, 0.35f, 0.20f);
-    public static final Color CONTROL_DANGER = new Color(0.85f, 0.35f, 0.35f, 1f);
+    public static final Color CONTROL_UNDO = new Color(0.40f, 0.78f, 0.90f, 1f);
+    public static final Color CONTROL_UNDO_HOVER = new Color(0.40f, 0.78f, 0.90f, 0.20f);
+    public static final Color CONTROL_BRANCH =new Color(0.90f, 0.50f, 0.70f, 1f);
+    public static final Color CONTROL_BRANCH_HOVER = new Color(0.90f, 0.50f, 0.70f, 0.20f);
+    public static final Color CONTROL_DANGER =new Color(0.85f, 0.35f, 0.35f, 1f);
     public static final Color CONTROL_DANGER_HOVER = new Color(0.85f, 0.35f, 0.35f, 0.22f);
 
     // Filled delete buttons.
@@ -71,7 +78,7 @@ public final class Components {
         return filledButton(text, fontSize, width, height, DANGER, DANGER_HOVER);
     }
 
-    public static ButtonOverlay filledButton(String text, float fontSize, double width, double height, Color color, Color hover) {
+    public static ButtonOverlay filledButton(String text, float fontSize, double width, double height, Paint color, Paint hover) {
         ButtonOverlay button = new ButtonOverlay(text, fontSize, Color.WHITE, width, height);
         button.setTextColor(Color.WHITE);
         button.getStyling().setBackgroundColor(color);
@@ -84,10 +91,10 @@ public final class Components {
     // A normal button in the theme's button color.
     public static ButtonOverlay secondaryButton(String text, float fontSize, double width, double height) {
         Theme theme = theme();
-        ButtonOverlay button = new ButtonOverlay(text, fontSize, theme.getText(), width, height);
-        button.setTextColor(theme.getText());
-        button.getStyling().setBackgroundColor(theme.getButtonBackground());
-        button.getStyling().setHoverColor(theme.getButtonHoverBackground());
+        ButtonOverlay button = new ButtonOverlay(text, fontSize, Palette.text(), width, height);
+        button.setTextColor(Palette.text());
+        button.getStyling().setBackgroundColor(Palette.button());
+        button.getStyling().setHoverColor(Palette.buttonHover());
         button.getStyling().setBorderThickness(0f);
         button.getStyling().setCornerRadius((float) (height / 2));
         return button;
@@ -96,20 +103,20 @@ public final class Components {
     // Just muted text until it's hovered. Used for the quieter header actions like Back.
     public static ButtonOverlay textButton(String text, double width, double height) {
         Theme theme = theme();
-        ButtonOverlay button = new ButtonOverlay(text, 13f, theme.getPlaceholderText(), width, height);
-        button.setTextColor(theme.getPlaceholderText());
+        ButtonOverlay button = new ButtonOverlay(text, 13f, Palette.muted(), width, height);
+        button.setTextColor(Palette.muted());
         button.getStyling().setBackgroundColor(Color.TRANSPARENT);
-        button.getStyling().setHoverColor(theme.getButtonHoverBackground());
+        button.getStyling().setHoverColor(Palette.buttonHover());
         return button;
     }
 
     // A small round icon button. The icon needs its own click handler too, clicks on a child don't reach the parent.
     // Every icon button has a tooltip since there's no label to say what it does. Null is for a disabled one.
-    public static Container iconButton(IconAsset icon, String tooltip, Color tint, Color hover, Runnable action) {
+    public static Container iconButton(IconAsset icon, String tooltip, Color tint, Paint hover, Runnable action) {
         return iconButton(icon, tooltip, CONTROL_SIZE, 16, (float) (CONTROL_SIZE / 2), tint, hover, action);
     }
 
-    public static Container iconButton(IconAsset icon, String tooltip, double size, double iconSize, float radius, Color tint, Color hover, Runnable action) {
+    public static Container iconButton(IconAsset icon, String tooltip, double size, double iconSize, float radius, Color tint, Paint hover, Runnable action) {
         Container button = new Container(size, size);
         if (tooltip != null) button.setTooltip(tooltip);
         button.getStyling().setBackgroundColor(Color.TRANSPARENT);
@@ -129,10 +136,24 @@ public final class Components {
     }
 
     // A round filled button with an icon in the middle, like the send button.
-    public static Container roundButton(IconAsset icon, String tooltip, double size, double iconSize, Color color, Color hover, Runnable action) {
+    public static Container roundButton(IconAsset icon, String tooltip, double size, double iconSize, Paint color, Paint hover, Runnable action) {
         Container button = iconButton(icon, tooltip, size, iconSize, (float) (size / 2), Color.WHITE, hover, action);
         button.getStyling().setBackgroundColor(color);
         return button;
+    }
+
+    // Text areas
+
+    // A multi-line field with spelling and grammar underlines.
+    public static RichTextAreaOverlay textArea(double height) {
+        RichTextAreaOverlay area = new RichTextAreaOverlay(10, height);
+        styleTextArea(area);
+        return area;
+    }
+
+    public static void styleTextArea(RichTextAreaOverlay area) {
+        area.getScrollBarStyle().setThickness(8f);
+        area.setChecker(GrammarChecker.shared());
     }
 
     // Containers
@@ -156,14 +177,14 @@ public final class Components {
     public static Container panel(double width, double height) {
         Container panel = new Container(width, height);
         panel.useTheme();
-        Color background = Palette.panel(0.92f);
+        Paint background = Palette.panel(0.92f);
         panel.getStyling().setBackgroundColor(background);
         panel.getStyling().setHoverColor(background);
         panel.getStyling().setCornerRadius(PANEL_RADIUS);
         return panel;
     }
 
-    public static void fill(Element element, Color color) {
+    public static void fill(Element element, Paint color) {
         element.getStyling().setBackgroundColor(color);
         element.getStyling().setHoverColor(color);
     }
@@ -194,13 +215,13 @@ public final class Components {
         clearStyle(box);
 
         box.addElement(gradientBadge(56, icon, 24));
-        box.addElement(new TextOverlay(title, 15f, theme().getText()));
-        box.addElement(new TextOverlay(hint, 13f, theme().getPlaceholderText()));
+        box.addElement(new TextOverlay(title, 15f, Palette.text()));
+        box.addElement(new TextOverlay(hint, 13f, Palette.muted()));
         return box;
     }
 
     // Cuts the text down with "..." until it fits.
-    public static TextOverlay fitText(String text, float fontSize, Color color, double maxWidth) {
+    public static TextOverlay fitText(String text, float fontSize, Paint color, double maxWidth) {
         TextOverlay overlay = new TextOverlay(text, fontSize, color);
         String label = text;
         while (overlay.getWidth() > maxWidth && label.length() > 1) {
@@ -242,6 +263,21 @@ public final class Components {
 
     // Dialogs
 
+    // Tells them something with one button to close it.
+    public static void notice(String title, String body) {
+        double width = 340, inner = width - 48;
+        TextFlowOverlay text = new TextFlowOverlay(body, inner, 13f, Palette.muted());
+        VerticalLayout panel = dialogPanel(width, 150 + text.getHeight());
+        panel.addElement(new TextOverlay(title, 16f, Palette.text()));
+        panel.addElement(text);
+
+        ModalContainer modal = new ModalContainer(panel);
+        ButtonOverlay close = accentButton("OK", 13f, inner, 38);
+        close.onAction(modal::close);
+        panel.addElement(close);
+        modal.show(App.window);
+    }
+
     // Asks before deleting something that can't be undone. onConfirm runs after the dialog closes.
     public static void confirmDelete(String title, String body, Runnable onConfirm) {
         confirmDelete(title, body, "Delete", onConfirm);
@@ -272,9 +308,11 @@ public final class Components {
     private static void confirmDelete(String title, String body, List<String> options, String confirmLabel,
                                       Consumer<boolean[]> onConfirm, Runnable onDismiss) {
         double width = 340, inner = width - 48;
-        VerticalLayout panel = dialogPanel(width, 190 + 34 * options.size());
-        panel.addElement(new TextOverlay(title, 16f, theme().getText()));
-        panel.addElement(new TextFlowOverlay(body, inner, 13f, theme().getPlaceholderText()));
+        // The height follows the text, a long warning would otherwise push the buttons out of the panel.
+        TextFlowOverlay text = new TextFlowOverlay(body, inner, 13f, Palette.muted());
+        VerticalLayout panel = dialogPanel(width, 150 + text.getHeight() + 38 * options.size());
+        panel.addElement(new TextOverlay(title, 16f, Palette.text()));
+        panel.addElement(text);
 
         List<CheckBoxOverlay> checks = new ArrayList<>();
         for (String option : options) {
@@ -284,7 +322,7 @@ public final class Components {
             row.setSpacing(10f);
             clearStyle(row);
             row.addElement(check);
-            TextOverlay label = new TextOverlay(option, 13f, theme().getText());
+            TextOverlay label = new TextOverlay(option, 13f, Palette.text());
             label.setCursorMode(CursorMode.POINTER);
             label.onMouseClick(event -> check.toggle());
             row.addElement(label);
@@ -311,6 +349,56 @@ public final class Components {
     }
 
     /**
+     * A check box per option, ticked or not as initial says. onConfirm gets which ones are ticked, in order. A long list
+     * scrolls. onDismiss runs when the dialog closes without confirming (Cancel, Escape or a click outside).
+     */
+    public static void pickMany(String title, String body, List<String> options, boolean[] initial, String confirmLabel,
+                                Consumer<boolean[]> onConfirm, Runnable onDismiss) {
+        double width = 360, inner = width - 48, rowHeight = 30;
+        TextFlowOverlay text = new TextFlowOverlay(body, inner, 13f, Palette.muted());
+        double listHeight = Math.min(options.size(), 7) * rowHeight;
+        VerticalLayout panel = dialogPanel(width, 160 + text.getHeight() + listHeight);
+        panel.addElement(new TextOverlay(title, 16f, Palette.text()));
+        panel.addElement(text);
+
+        ScrollContainer list = new ScrollContainer(inner, listHeight);
+        List<CheckBoxOverlay> checks = new ArrayList<>();
+        for (int i = 0; i < options.size(); i++) {
+            CheckBoxOverlay check = new CheckBoxOverlay(20, i < initial.length && initial[i]);
+            checks.add(check);
+            HorizontalLayout row = new HorizontalLayout(inner, rowHeight);
+            row.setSpacing(10f);
+            clearStyle(row);
+            row.addElement(check);
+            TextOverlay label = new TextOverlay(options.get(i), 13f, Palette.text());
+            label.setCursorMode(CursorMode.POINTER);
+            label.onMouseClick(event -> check.toggle());
+            row.addElement(label);
+            row.setPosition(0, i * rowHeight);
+            list.addElement(row);
+        }
+        panel.addElement(list);
+
+        ModalContainer modal = new ModalContainer(panel);
+        boolean[] confirmed = new boolean[1];
+        if (onDismiss != null) {
+            modal.onClose(() -> {
+                if (!confirmed[0]) onDismiss.run();
+            });
+        }
+        ButtonOverlay confirm = accentButton(confirmLabel, 13f, (inner - 12) / 2, 38);
+        confirm.onAction(() -> {
+            confirmed[0] = true;
+            modal.close();
+            boolean[] ticked = new boolean[checks.size()];
+            for (int i = 0; i < ticked.length; i++) ticked[i] = checks.get(i).isChecked();
+            onConfirm.accept(ticked);
+        });
+        panel.addElement(dialogButtons(inner, modal, confirm));
+        modal.show(App.window);
+    }
+
+    /**
      * Asks for a line of text. onConfirm gets it trimmed.
      *
      * @param allowBlank if false the dialog won't close until something is typed
@@ -325,7 +413,7 @@ public final class Components {
                                   int maxLength, boolean allowBlank, Consumer<String> onConfirm, Runnable onDismiss) {
         double width = 360, inner = width - 48;
         VerticalLayout panel = dialogPanel(width, 200);
-        panel.addElement(new TextOverlay(title, 16f, theme().getText()));
+        panel.addElement(new TextOverlay(title, 16f, Palette.text()));
 
         TextFieldOverlay field = new TextFieldOverlay(inner, 38);
         field.setPlaceholder(placeholder);
@@ -363,9 +451,10 @@ public final class Components {
     public static void promptPasswords(String title, String body, List<String> placeholders, String confirmLabel,
                                        Function<List<String>, String> check, Runnable onDone) {
         double width = 380, inner = width - 48;
-        VerticalLayout panel = dialogPanel(width, 200 + 52 * placeholders.size());
-        panel.addElement(new TextOverlay(title, 16f, theme().getText()));
-        panel.addElement(new TextFlowOverlay(body, inner, 13f, theme().getPlaceholderText()));
+        TextFlowOverlay bodyText = new TextFlowOverlay(body, inner, 13f, Palette.muted());
+        VerticalLayout panel = dialogPanel(width, 175 + bodyText.getHeight() + 52 * placeholders.size());
+        panel.addElement(new TextOverlay(title, 16f, Palette.text()));
+        panel.addElement(bodyText);
 
         List<TextFieldOverlay> fields = new ArrayList<>();
         for (String placeholder : placeholders) {

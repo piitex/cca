@@ -1,5 +1,6 @@
 package me.piitex.cca.ui.settings;
 
+import me.piitex.cca.theme.Palette;
 import me.piitex.cca.ui.Components;
 import me.piitex.engine.ui.Element;
 import me.piitex.engine.ui.containers.Container;
@@ -33,12 +34,12 @@ final class SettingsForm {
     }
 
     void note(String text) {
-        place(new TextFlowOverlay(text, width, 13f, theme.getPlaceholderText()), 18);
+        place(new TextFlowOverlay(text, width, 13f, Palette.muted()), 18);
     }
 
     void heading(String title) {
         endCard();
-        TextOverlay heading = new TextOverlay(title, 13f, theme.getPlaceholderText());
+        TextOverlay heading = new TextOverlay(title, 13f, Palette.muted());
         heading.setPosition(4, y);
         scroll.addElement(heading);
         y += heading.getHeight() + 8;
@@ -82,14 +83,14 @@ final class SettingsForm {
         double inner = width - 2 * CARD_PADDING;
         double textWidth = Math.max(140, inner - control.getWidth() - 24);
 
-        TextOverlay title = new TextOverlay(label, 14f, theme.getText());
-        TextFlowOverlay description = help == null || help.isBlank() ? null : new TextFlowOverlay(help, textWidth, 12f, theme.getPlaceholderText());
+        TextOverlay title = new TextOverlay(label, 14f, Palette.text());
+        TextFlowOverlay description = help == null || help.isBlank() ? null : new TextFlowOverlay(help, textWidth, 12f, Palette.muted());
         double textHeight = title.getHeight() + (description != null ? 3 + description.getHeight() : 0);
         double rowHeight = Math.max(textHeight, control.getHeight()) + 2 * ROW_PADDING;
 
         if (rows > 0) {
             SeparatorOverlay line = new SeparatorOverlay(inner);
-            line.setLineColor(theme.getContainerBorder());
+            line.setLineColor(Palette.border());
             line.setPosition(CARD_PADDING, cursor);
             card.addElement(line);
         }

@@ -14,6 +14,7 @@ import me.piitex.engine.ui.overlays.ButtonOverlay;
 import me.piitex.engine.ui.overlays.TextFieldOverlay;
 import me.piitex.engine.ui.overlays.TextFlowOverlay;
 import me.piitex.engine.ui.overlays.TextOverlay;
+import me.piitex.engine.ui.text.TextAlign;
 
 
 // Opened when local setup fails: chat goes to the user's own llama.cpp-compatible endpoint instead (the same one Models >
@@ -109,7 +110,7 @@ public class CloudSetupMenu {
     private void showStatus(String text, Color color) {
         Components.clear(statusBox);
         TextFlowOverlay flow = new TextFlowOverlay(text, contentWidth, 13f, color);
-        flow.setTextAlign(TextFlowOverlay.TextAlign.CENTER);
+        flow.setTextAlign(TextAlign.CENTER);
         statusBox.addElement(flow);
     }
 

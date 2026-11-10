@@ -23,6 +23,7 @@ import me.piitex.engine.ui.overlays.ProgressBarOverlay;
 import me.piitex.engine.ui.overlays.SeparatorOverlay;
 import me.piitex.engine.ui.overlays.TextFlowOverlay;
 import me.piitex.engine.ui.overlays.TextOverlay;
+import me.piitex.engine.ui.text.TextAlign;
 
 import java.util.Objects;
 
@@ -239,7 +240,7 @@ public class LocalSetupMenu {
 
         String reason = service.getErrorMessage() != null ? service.getErrorMessage() : "Local setup failed.";
         TextFlowOverlay message = new TextFlowOverlay(reason, detailWidth, 13f, FAILED_COLOR);
-        message.setTextAlign(TextFlowOverlay.TextAlign.CENTER);
+        message.setTextAlign(TextAlign.CENTER);
         box.addElement(message);
 
         ButtonOverlay continueCloud = SetupMenu.gradientButton("Continue with Cloud Setup", 15f, detailWidth, 48);

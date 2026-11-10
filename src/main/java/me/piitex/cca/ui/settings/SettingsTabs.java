@@ -3,6 +3,7 @@ package me.piitex.cca.ui.settings;
 import me.piitex.cca.theme.Palette;
 import me.piitex.cca.ui.Components;
 import me.piitex.engine.ui.color.Color;
+import me.piitex.engine.ui.color.Paint;
 import me.piitex.engine.ui.containers.Container;
 import me.piitex.engine.ui.image.IconAsset;
 import me.piitex.engine.ui.overlays.IconOverlay;
@@ -36,7 +37,7 @@ final class SettingsTabs {
         double iconSize = 16, padX = 14, gap = 8, spacing = 6;
         double full = 0;
         for (T tab : tabs) {
-            full += padX * 2 + iconSize + gap + new TextOverlay(tab.label(), 14f, theme.getText()).getWidth() + spacing;
+            full += padX * 2 + iconSize + gap + new TextOverlay(tab.label(), 14f, Palette.text()).getWidth() + spacing;
         }
         boolean compact = full > width;
 
@@ -44,7 +45,7 @@ final class SettingsTabs {
         for (T tab : tabs) {
             boolean isActive = tab == active;
             boolean showLabel = isActive || !compact;
-            Color tint = isActive ? Palette.accent() : theme.getPlaceholderText();
+            Paint tint = isActive ? Palette.accent() : Palette.muted();
             Runnable select = () -> onSelect.accept(tab);
 
             TextOverlay label = new TextOverlay(tab.label(), 14f, tint);
@@ -52,13 +53,13 @@ final class SettingsTabs {
 
             Container pill = new Container(pillWidth, TAB_HEIGHT);
             pill.getStyling().setBackgroundColor(isActive ? Palette.tint() : Color.TRANSPARENT);
-            pill.getStyling().setHoverColor(isActive ? Palette.tintStrong() : theme.getButtonHoverBackground());
+            pill.getStyling().setHoverColor(isActive ? Palette.tintStrong() : Palette.buttonHover());
             pill.getStyling().setBorderThickness(0f);
             pill.getStyling().setCornerRadius(12f);
             SettingsUi.clickable(pill, select);
 
             IconOverlay icon = new IconOverlay(tab.icon(), iconSize, iconSize);
-            icon.setTint(tint);
+            icon.setTint(isActive ? Palette.accentColor() : Palette.mutedColor());
             icon.setPosition(padX, (TAB_HEIGHT - iconSize) / 2.0);
             SettingsUi.clickable(icon, select);
             pill.addElement(icon);

@@ -39,7 +39,7 @@ final class SettingsUi {
 
     // A faint tint of the text color so cards look inset in both light and dark themes.
     static Color cardColor() {
-        Color text = Components.theme().getText();
+        Color text = Palette.textColor();
         return new Color(text.getR(), text.getG(), text.getB(), 0.045f);
     }
 
@@ -47,7 +47,7 @@ final class SettingsUi {
         Container card = new Container(width, height);
         Components.fill(card, cardColor());
         card.getStyling().setBorderThickness(1f);
-        card.getStyling().setBorderColor(Components.theme().getContainerBorder());
+        card.getStyling().setBorderColor(Palette.border());
         card.getStyling().setCornerRadius(16f);
         return card;
     }
@@ -64,7 +64,7 @@ final class SettingsUi {
         row.getStyling().setBackgroundColor(selected ? Palette.tint() : cardColor());
         row.getStyling().setHoverColor(selected ? Palette.tintStrong() : Palette.rowHover());
         row.getStyling().setBorderThickness(1f);
-        row.getStyling().setBorderColor(selected ? Palette.accent() : theme.getContainerBorder());
+        row.getStyling().setBorderColor(selected ? Palette.accent() : Palette.border());
         clickable(row, onPick);
 
         double radio = 18;
@@ -72,7 +72,7 @@ final class SettingsUi {
         ring.getStyling().setBackgroundColor(Color.TRANSPARENT);
         ring.getStyling().setHoverColor(Color.TRANSPARENT);
         ring.getStyling().setBorderThickness(2f);
-        ring.getStyling().setBorderColor(selected ? Palette.accent() : theme.getPlaceholderText());
+        ring.getStyling().setBorderColor(selected ? Palette.accent() : Palette.muted());
         ring.getStyling().setCornerRadius((float) (radio / 2));
         ring.setPosition(CARD_PADDING - 2, (height - radio) / 2.0);
         clickable(ring, onPick);
@@ -89,8 +89,8 @@ final class SettingsUi {
         row.addElement(ring);
 
         double textX = CARD_PADDING + radio + 14;
-        TextOverlay name = new TextOverlay(title, 15f, theme.getText());
-        TextOverlay kind = new TextOverlay(subtitle, 12f, theme.getPlaceholderText());
+        TextOverlay name = new TextOverlay(title, 15f, Palette.text());
+        TextOverlay kind = new TextOverlay(subtitle, 12f, Palette.muted());
         double blockHeight = name.getHeight() + 3 + kind.getHeight();
         name.setPosition(textX, (height - blockHeight) / 2.0);
         kind.setPosition(textX, (height - blockHeight) / 2.0 + name.getHeight() + 3);
@@ -178,6 +178,6 @@ final class SettingsUi {
     }
 
     static TextOverlay value(String text) {
-        return new TextOverlay(text, 14f, Components.theme().getText());
+        return new TextOverlay(text, 14f, Palette.text());
     }
 }

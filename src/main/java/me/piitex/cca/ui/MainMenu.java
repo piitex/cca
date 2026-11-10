@@ -57,6 +57,7 @@ public class MainMenu {
     }
 
     private record NavRow(HorizontalLayout row, IconOverlay icon, TextOverlay label) {
+
     }
 
     private static final NavItem[] NAV_ITEMS = {
@@ -118,7 +119,7 @@ public class MainMenu {
         renderContent();
 
         // The split container resizes the panes on its own but everything in them is positioned by hand.
-        main.onDividerMoved(position -> {
+        main.onDividerMoved(_ -> {
             renderSidebar();
             renderContent();
         });
@@ -168,13 +169,13 @@ public class MainMenu {
         badge.setPosition(inset, cursorY);
         sidebar.addElement(badge);
 
-        TextOverlay wordmark = new TextOverlay("CCA", 18f, theme.getText());
+        TextOverlay wordmark = new TextOverlay("CCA", 18f, Palette.text());
         wordmark.setPosition(inset + badgeSize + 10, cursorY + (badgeSize - wordmark.getHeight()) / 2.0);
         sidebar.addElement(wordmark);
         cursorY += badgeSize + 20;
 
         SeparatorOverlay divider = new SeparatorOverlay(Math.max(0, width - 2 * inset));
-        divider.setLineColor(theme.getContainerBorder());
+        divider.setLineColor(Palette.border());
         divider.setPosition(inset, cursorY);
         sidebar.addElement(divider);
         cursorY += divider.getHeight() + 16;
@@ -196,14 +197,14 @@ public class MainMenu {
         row.setSpacing(10f);
         row.useTheme(); // For the corner radius, the colors are set in highlightActiveNav.
         row.getStyling().setBackgroundColor(Color.TRANSPARENT);
-        row.getStyling().setHoverColor(theme.getButtonHoverBackground());
+        row.getStyling().setHoverColor(Palette.buttonHover());
         row.setCursorMode(CursorMode.POINTER);
 
         IconOverlay icon = new IconOverlay(item.icon(), 18, 18);
-        icon.setTint(theme.getPlaceholderText());
+        icon.setTint(Palette.mutedColor());
         row.addElement(icon);
 
-        TextOverlay label = new TextOverlay(item.label(), 14f, theme.getPlaceholderText());
+        TextOverlay label = new TextOverlay(item.label(), 14f, Palette.muted());
         row.addElement(label);
 
         row.onMouseClick(event -> showSection(item.section()));
@@ -215,10 +216,9 @@ public class MainMenu {
             boolean active = entry.getKey() == activeSection;
             NavRow navRow = entry.getValue();
             navRow.row().getStyling().setBackgroundColor(active ? Palette.tint() : Color.TRANSPARENT);
-            navRow.row().getStyling().setHoverColor(active ? Palette.tintStrong() : theme.getButtonHoverBackground());
-            Color tint = active ? Palette.accent() : theme.getPlaceholderText();
-            navRow.icon().setTint(tint);
-            navRow.label().setTextColor(tint);
+            navRow.row().getStyling().setHoverColor(active ? Palette.tintStrong() : Palette.buttonHover());
+            navRow.icon().setTint(active ? Palette.accentColor() : Palette.mutedColor());
+            navRow.label().setTextColor(active ? Palette.accent() : Palette.muted());
         }
     }
 
@@ -274,7 +274,7 @@ public class MainMenu {
             case SETTINGS -> "Settings";
         };
 
-        TextOverlay titleText = new TextOverlay(title, 24f, theme.getText());
+        TextOverlay titleText = new TextOverlay(title, 24f, Palette.text());
         titleText.setPosition(PADDING, headerY);
         content.addElement(titleText);
         double headerBottom = headerY + titleText.getHeight();
@@ -294,7 +294,7 @@ public class MainMenu {
 
         double dividerY = headerBottom + 20;
         SeparatorOverlay divider = new SeparatorOverlay(Math.max(0, contentWidth - 2 * PADDING));
-        divider.setLineColor(theme.getContainerBorder());
+        divider.setLineColor(Palette.border());
         divider.setPosition(PADDING, dividerY);
         content.addElement(divider);
 
@@ -334,17 +334,29 @@ public class MainMenu {
         open(Section.CREATE, new CharacterCreatorMenu(this, character));
     }
 
-    public void onCharacterCreated(Character character) {
+    void duplicateCharacter(Character original) {
+        open(Section.CHARACTERS, CharacterCreatorMenu.duplicating(this, original));
+    }
+
+    // The original is set when this came from Duplicate, so the new card goes next to it.
+    public void onCharacterCreated(Character character, Character original) {
         App.logger.info("Created character '{}'", character.getId());
-        hub.add(character);
-        dropMenu();
-        showSection(Section.CHARACTERS);
+        if (original != null) hub.addBeside(original, character);
+        else hub.add(character);
+        backToCharacters();
     }
 
     // The edited character is the same object the hub already has, so just go back.
     public void onCharacterEdited(Character character) {
+        backToCharacters();
+    }
+
+    // The editor is opened from the Characters page or from the Create page, either way this ends up on the Characters page.
+    // showSection does nothing when already on that page, so it has to be redrawn here.
+    private void backToCharacters() {
         dropMenu();
-        showSection(Section.CHARACTERS);
+        if (activeSection == Section.CHARACTERS) renderContent();
+        else showSection(Section.CHARACTERS);
     }
 
     void openCreateUser() {
@@ -355,9 +367,14 @@ public class MainMenu {
         open(Section.USERS, new UserCreatorMenu(this, user));
     }
 
-    public void onUserCreated(User user) {
+    void duplicateUser(User original) {
+        open(Section.USERS, UserCreatorMenu.duplicating(this, original));
+    }
+
+    public void onUserCreated(User user, User original) {
         App.logger.info("Created user '{}'", user.getId());
-        userHub.add(user);
+        if (original != null) userHub.addBeside(original, user);
+        else userHub.add(user);
         backToUsers();
     }
 
@@ -406,16 +423,16 @@ public class MainMenu {
         double textX = padding + badgeSize + spacing;
         double textWidth = Math.max(0, width - textX - spacing - chevronSize - padding);
 
-        TextOverlay titleText = new TextOverlay(title, 16f, theme.getText());
+        TextOverlay titleText = new TextOverlay(title, 16f, Palette.text());
         titleText.setPosition(textX, CREATE_BUTTON_HEIGHT / 2.0 - titleText.getHeight() - 2);
         row.addElement(titleText);
 
-        TextFlowOverlay descriptionText = new TextFlowOverlay(description, textWidth, 12f, theme.getPlaceholderText());
+        TextFlowOverlay descriptionText = new TextFlowOverlay(description, textWidth, 12f, Palette.muted());
         descriptionText.setPosition(textX, CREATE_BUTTON_HEIGHT / 2.0 + 2);
         row.addElement(descriptionText);
 
         IconOverlay chevron = new IconOverlay(Feather.CHEVRON_RIGHT, chevronSize, chevronSize);
-        chevron.setTint(theme.getPlaceholderText());
+        chevron.setTint(Palette.mutedColor());
         chevron.setPosition(width - padding - chevronSize, (CREATE_BUTTON_HEIGHT - chevronSize) / 2.0);
         row.addElement(chevron);
 

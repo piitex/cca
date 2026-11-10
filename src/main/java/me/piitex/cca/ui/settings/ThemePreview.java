@@ -7,6 +7,7 @@ import me.piitex.cca.ui.chat.ChatPreview;
 import me.piitex.engine.ui.Element;
 import me.piitex.engine.ui.color.Color;
 import me.piitex.engine.ui.color.LinearGradient;
+import me.piitex.engine.ui.color.Paint;
 import me.piitex.engine.ui.containers.Container;
 import me.piitex.engine.ui.overlays.ButtonOverlay;
 import me.piitex.engine.ui.overlays.CheckBoxOverlay;
@@ -213,50 +214,48 @@ final class ThemePreview {
     void show(AppTheme theme) {
         this.theme = theme;
         float r = theme.cornerRadiusValue();
-        Color text = theme.get(Slot.TEXT);
-        Color line = theme.get(Slot.BORDER);
+        Paint text = theme.fresh(Slot.TEXT);
 
-        Components.fill(root, theme.get(Slot.WINDOW));
-        root.getStyling().setBorderColor(line);
+        Components.fill(root, theme.fresh(Slot.WINDOW));
+        root.getStyling().setBorderColor(theme.fresh(Slot.BORDER));
         root.getStyling().setCornerRadius(Math.max(r, 8f));
 
-        Components.fill(sidebar, theme.get(Slot.PANEL));
+        Components.fill(sidebar, theme.fresh(Slot.PANEL));
         sidebar.getStyling().setCornerRadius(r);
-        Components.fill(panel, theme.get(Slot.PANEL));
+        Components.fill(panel, theme.fresh(Slot.PANEL));
         panel.getStyling().setCornerRadius(r);
-        panel.getScrollBarStyle().setThumbColor(theme.get(Slot.SCROLL_THUMB));
-        panel.getScrollBarStyle().setTrackColor(theme.get(Slot.SCROLL_TRACK));
+        panel.getScrollBarStyle().setThumbColor(theme.fresh(Slot.SCROLL_THUMB));
+        panel.getScrollBarStyle().setTrackColor(theme.fresh(Slot.SCROLL_TRACK));
 
         title.setTextColor(text);
-        muted.setTextColor(theme.get(Slot.MUTED));
-        toggleText.setTextColor(text);
-        checkText.setTextColor(text);
-        LinearGradient gradient = new LinearGradient(theme.accent(), theme.accentEnd());
+        muted.setTextColor(theme.fresh(Slot.MUTED));
+        toggleText.setTextColor(theme.fresh(Slot.TEXT));
+        checkText.setTextColor(theme.fresh(Slot.TEXT));
+        LinearGradient gradient = new LinearGradient(theme.accentColor(), theme.accentEnd());
         badge.getStyling().setBackgroundColor(gradient);
         badge.getStyling().setHoverColor(gradient);
 
-        Components.fill(bubble, theme.get(Slot.FIELD));
-        bubble.getStyling().setBorderColor(line);
+        Components.fill(bubble, theme.fresh(Slot.FIELD));
+        bubble.getStyling().setBorderColor(theme.fresh(Slot.BORDER));
         bubble.getStyling().setCornerRadius(Math.max(r, 6f) + 6f);
-        bubbleText.setTextColor(text);
+        bubbleText.setTextColor(theme.fresh(Slot.TEXT));
 
         // The controls take their colors from the theme, the accents and the pill shape are what the app sets on top.
         for (Themeable control : themed) control.applyTheme(theme);
         toggle.setOnColor(theme.accent());
         slider.setFillColor(theme.accent());
         slider.setThumbColor(theme.accent());
-        Color hint = theme.get(Slot.MUTED);
-        dropdown.setTextColor(text);
+        dropdown.setTextColor(theme.fresh(Slot.TEXT));
 
         accentButton.setTextColor(Color.WHITE);
         accentButton.getStyling().setBackgroundColor(theme.accent());
         accentButton.getStyling().setHoverColor(theme.accentHover());
         accentButton.getStyling().setBorderThickness(0f);
         accentButton.getStyling().setCornerRadius((float) (ROW / 2));
-        plainButton.setTextColor(text);
+        plainButton.setTextColor(theme.fresh(Slot.TEXT));
         plainButton.getStyling().setBorderThickness(0f);
         plainButton.getStyling().setCornerRadius((float) (ROW / 2));
-        cardHint.setTextColor(hint);
+        cardHint.setTextColor(theme.fresh(Slot.MUTED));
 
         for (Element element : tooltips) element.setTooltipTheme(theme);
 
@@ -272,18 +271,18 @@ final class ThemePreview {
             nav[i].getStyling().setBackgroundColor(on ? theme.tint() : Color.TRANSPARENT);
             nav[i].getStyling().setHoverColor(on ? theme.tintStrong() : theme.rowHover());
             nav[i].getStyling().setCornerRadius(r);
-            navText[i].setTextColor(on ? theme.accent() : theme.get(Slot.MUTED));
+            navText[i].setTextColor(on ? theme.accent() : theme.fresh(Slot.MUTED));
         }
     }
 
     private void styleCard() {
         if (theme == null) return;
-        Color text = theme.get(Slot.TEXT);
+        Color text = theme.solid(Slot.TEXT);
         Color base = new Color(text.getR(), text.getG(), text.getB(), 0.045f);
         card.getStyling().setBackgroundColor(cardSelected ? theme.tint() : base);
         card.getStyling().setHoverColor(cardSelected ? theme.tintStrong() : theme.rowHover());
-        card.getStyling().setBorderColor(cardSelected ? theme.accent() : theme.get(Slot.BORDER));
+        card.getStyling().setBorderColor(cardSelected ? theme.accent() : theme.fresh(Slot.BORDER));
         card.getStyling().setCornerRadius(Math.max(theme.cornerRadiusValue(), 6f) + 4f);
-        cardTitle.setTextColor(text);
+        cardTitle.setTextColor(theme.fresh(Slot.TEXT));
     }
 }

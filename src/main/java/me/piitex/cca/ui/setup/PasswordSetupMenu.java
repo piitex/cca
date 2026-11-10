@@ -13,6 +13,7 @@ import me.piitex.engine.ui.overlays.ButtonOverlay;
 import me.piitex.engine.ui.overlays.TextFieldOverlay;
 import me.piitex.engine.ui.overlays.TextFlowOverlay;
 import me.piitex.engine.ui.overlays.TextOverlay;
+import me.piitex.engine.ui.text.TextAlign;
 
 import java.io.IOException;
 
@@ -54,7 +55,7 @@ public class PasswordSetupMenu {
 
         TextFlowOverlay info = new TextFlowOverlay("Your characters, chats and saved API keys are already encrypted. A password keeps them locked until you enter it. "
                 + "There's no way to recover a forgotten password.", contentWidth, 13f, SetupMenu.mutedText());
-        info.setTextAlign(TextFlowOverlay.TextAlign.CENTER);
+        info.setTextAlign(TextAlign.CENTER);
         info.setPosition(padding, y);
         card.addElement(info);
         y += info.getHeight() + 16;

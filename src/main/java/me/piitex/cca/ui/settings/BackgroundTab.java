@@ -6,7 +6,7 @@ import me.piitex.cca.config.AppearanceSettings;
 import me.piitex.cca.config.Settings.Setting;
 import me.piitex.cca.ui.Components;
 import me.piitex.engine.ui.Element;
-import me.piitex.engine.ui.color.Color;
+import me.piitex.engine.ui.color.Paint;
 import me.piitex.engine.ui.containers.Container;
 import me.piitex.engine.ui.overlays.ColorPickerOverlay;
 import me.piitex.engine.ui.overlays.SpinnerOverlay;
@@ -22,7 +22,7 @@ import java.util.function.Supplier;
 final class BackgroundTab {
     private static final double GAP = 16;
 
-    private final Supplier<Color> themeWindow;
+    private final Supplier<Paint> themeWindow;
     private final Consumer<SettingsForm> themeLink;
     private final ScrollMemory scroll;
     private final Runnable changed;
@@ -38,7 +38,7 @@ final class BackgroundTab {
      * @param changed     called after any edit to refresh the footer
      * @param redraw      rebuilds the screen
      */
-    BackgroundTab(Supplier<Color> themeWindow, Consumer<SettingsForm> themeLink, ScrollMemory scroll, Runnable changed, Runnable redraw) {
+    BackgroundTab(Supplier<Paint> themeWindow, Consumer<SettingsForm> themeLink, ScrollMemory scroll, Runnable changed, Runnable redraw) {
         this.themeWindow = themeWindow;
         this.themeLink = themeLink;
         this.scroll = scroll;

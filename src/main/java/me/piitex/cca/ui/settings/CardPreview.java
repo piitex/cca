@@ -1,6 +1,7 @@
 package me.piitex.cca.ui.settings;
 
 import me.piitex.cca.config.AppearanceSettings;
+import me.piitex.cca.theme.Palette;
 import me.piitex.cca.ui.CharacterCards;
 import me.piitex.cca.ui.CharacterCards.Face;
 import me.piitex.cca.ui.Components;
@@ -27,7 +28,7 @@ final class CardPreview {
     CardPreview(double height) {
         root = Components.panel(WIDTH, height);
         root.getStyling().setBorderThickness(1f);
-        root.getStyling().setBorderColor(Components.theme().getContainerBorder());
+        root.getStyling().setBorderColor(Palette.border());
         list = new ScrollContainer(WIDTH - 2 * PADDING, Math.max(0, height - 2 * PADDING));
         list.setPosition(PADDING, PADDING);
         root.addElement(list);
@@ -45,7 +46,7 @@ final class CardPreview {
         };
 
         List<Container> cards = List.of(
-                CharacterCards.character(look, FACES.get(0), none, none, none),
+                CharacterCards.character(look, FACES.get(0), none, none, none, none),
                 CharacterCards.folder(look, "Friends", FACES, none, none));
         double gap = Math.min(PADDING, look.gap());
         double x = (list.getWidth() - look.width()) / 2.0, y = 0;
