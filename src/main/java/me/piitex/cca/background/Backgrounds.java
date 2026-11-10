@@ -16,6 +16,7 @@ import me.piitex.engine.ui.color.LinearGradient;
 import me.piitex.engine.ui.color.Paint;
 import me.piitex.engine.ui.color.RainbowColor;
 import me.piitex.engine.ui.color.ScrollingGradient;
+import org.jetbrains.skia.Image;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -94,7 +95,6 @@ public final class Backgrounds {
         Type type = Type.of(settings.backgroundType.get());
         Background effect = createEffect(type);
         if (effect != null) configure(effect, settings, 1.0);
-        window.setBackground(effect);
 
         Paint fill = fill(settings);
         if (fill == null) {
@@ -102,6 +102,8 @@ public final class Backgrounds {
         } else {
             window.setBackgroundColor(fill);
         }
+        // After the fill, following the theme also unpins the effect and would clear it.
+        window.setBackground(effect);
     }
 
     // Null for the types that are only a fill.
@@ -179,6 +181,16 @@ public final class Backgrounds {
     // Same, with the picture given instead of read from the options, like a character's icon.
     public static void configure(ImageBackground i, ImageOptions o, Path file) {
         i.setSource(file);
+        configureLook(i, o);
+    }
+
+    // Same, with a picture that's already decoded and kept by someone else, see ImageBackground.setImage.
+    public static void configure(ImageBackground i, ImageOptions o, Image image) {
+        i.setImage(image);
+        configureLook(i, o);
+    }
+
+    private static void configureLook(ImageBackground i, ImageOptions o) {
         i.setFit(ImageBackground.Fit.of(o.fit().get()));
         i.setZoom(o.zoom().get().floatValue() / 100f);
         i.setAlignment(o.alignX().get().floatValue() / 100f, o.alignY().get().floatValue() / 100f);

@@ -3,6 +3,7 @@ package me.piitex.cca.ui.chat;
 import me.piitex.cca.background.Backgrounds;
 import me.piitex.cca.background.ImageBackground;
 import me.piitex.cca.config.ImageOptions;
+import me.piitex.cca.crypto.ProtectedImages;
 import me.piitex.cca.theme.Palette;
 import me.piitex.cca.ui.Components;
 import me.piitex.engine.ui.Element;
@@ -15,7 +16,8 @@ import me.piitex.engine.ui.layout.StackLayout;
 import me.piitex.engine.ui.overlays.IconOverlay;
 import me.piitex.engine.ui.overlays.TextOverlay;
 
-import java.nio.file.Files;
+import org.jetbrains.skia.Image;
+
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -44,13 +46,15 @@ final class ChatAvatars {
         return icon;
     }
 
-    // One decoded picture per icon file, since a chat builds an avatar for every message.
+    // One layout per icon file, since a chat builds an avatar for every message. The picture itself is the one the hubs
+    // use, so it's only read and decrypted once.
     private static ImageBackground picture(Path file, ImageOptions options, float radius) {
-        if (!Files.isRegularFile(file)) return null;
+        Image image = ProtectedImages.load(file);
+        if (image == null) return null;
         ImageBackground picture = PICTURES.computeIfAbsent(file, key -> new ImageBackground());
-        Backgrounds.configure(picture, options, file);
+        Backgrounds.configure(picture, options, image);
         picture.setCornerRadius(radius);
-        return picture.hasImage() ? picture : null;
+        return picture;
     }
 
     private static Element initialBadge(Speaker character, double width, double height, float cornerRadius) {

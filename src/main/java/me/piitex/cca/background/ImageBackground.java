@@ -60,7 +60,12 @@ public final class ImageBackground extends AbstractBackground {
     }
 
     private Path source;
+    // When the file was last written, a new icon is saved over the old one under the same name.
+    private long sourceModified;
+    private long sourceSize;
     private Image image;
+    // False for a picture from setImage, whoever gave it keeps it open.
+    private boolean ownsImage;
     private String error;
 
     private Fit fit = Fit.COVER;
@@ -75,22 +80,50 @@ public final class ImageBackground extends AbstractBackground {
 
     // Only decodes when the file actually changes. If it can't be read getError() says why.
     public void setSource(Path file) {
-        if (file == null ? source == null : file.equals(source)) return;
-        source = file;
-        error = null;
-        if (image != null) {
-            image.close();
-            image = null;
+        long modified = 0, size = 0;
+        try {
+            if (file != null && Files.isRegularFile(file)) {
+                modified = Files.getLastModifiedTime(file).toMillis();
+                size = Files.size(file);
+            }
+        } catch (IOException e) {
+            // Reads as unchanged below, decoding is what reports a bad file.
         }
+        boolean same = file == null ? source == null : file.equals(source) && modified == sourceModified && size == sourceSize;
+        if (same) return;
+        source = file;
+        sourceModified = modified;
+        sourceSize = size;
+        error = null;
+        releaseImage();
         if (file == null) return;
         try {
             image = Image.Companion.makeFromEncoded(ProtectedImages.read(file));
+            ownsImage = true;
         } catch (IOException | RuntimeException e) {
             image = null;
         }
         if (image == null) {
             error = Files.isRegularFile(file) ? "Couldn't read that file as an image." : "That file can't be found.";
         }
+    }
+
+    // A picture someone else keeps, like the ones ProtectedImages holds on to. It's drawn but never closed here, and
+    // nothing is decoded again when the same one is set twice.
+    public void setImage(Image shared) {
+        if (shared == image && !ownsImage) return;
+        releaseImage();
+        source = null;
+        sourceModified = 0;
+        sourceSize = 0;
+        error = null;
+        image = shared;
+    }
+
+    private void releaseImage() {
+        if (image != null && ownsImage) image.close();
+        image = null;
+        ownsImage = false;
     }
 
     public String getError() {

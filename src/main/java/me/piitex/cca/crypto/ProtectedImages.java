@@ -12,8 +12,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 // The icons of characters, users and templates. On disk they're encrypted like everything else the user made, so
 // nothing can be looked at from the file system. Decoding happens here, the engine only ever sees the decoded picture.
@@ -32,6 +37,16 @@ public final class ProtectedImages {
             return size() > MAX_CACHED;
         }
     };
+
+    // Pictures being read right now, by file.
+    private static final Map<Path, CompletableFuture<Image>> LOADING = new ConcurrentHashMap<>();
+
+    // A few at a time, each one holds the file in memory several times over while it's decrypted.
+    private static final Executor PRELOADER = Executors.newFixedThreadPool(Math.clamp(Runtime.getRuntime().availableProcessors() - 1, 1, 4), task -> {
+        Thread thread = new Thread(task, "icon-preload");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     private ProtectedImages() {
     }
@@ -77,6 +92,7 @@ public final class ProtectedImages {
     }
 
     // One decoded picture per file, since the hubs draw every card again on each render. Null if it can't be read.
+    // Decrypting a big picture takes a while, so this is best kept off the render thread, see preload.
     public static Image load(Path file) {
         Path key = file.toAbsolutePath().normalize();
         if (!Files.isRegularFile(key)) return null;
@@ -87,15 +103,33 @@ public final class ProtectedImages {
                 Cached cached = CACHE.get(key);
                 if (cached != null && cached.modified() == modified && cached.size() == size) return cached.image();
             }
-            Image image = Image.Companion.makeFromEncoded(read(key));
-            if (image == null) return null;
-            synchronized (CACHE) {
-                CACHE.put(key, new Cached(modified, size, image));
+            // Whoever asks first reads the file, anyone else asking for it meanwhile waits for that instead of reading it again.
+            CompletableFuture<Image> mine = new CompletableFuture<>();
+            CompletableFuture<Image> running = LOADING.putIfAbsent(key, mine);
+            if (running != null) return running.join();
+            Image image = null;
+            try {
+                image = Image.Companion.makeFromEncoded(read(key));
+                if (image != null) {
+                    synchronized (CACHE) {
+                        CACHE.put(key, new Cached(modified, size, image));
+                    }
+                }
+                return image;
+            } finally {
+                mine.complete(image);
+                LOADING.remove(key, mine);
             }
-            return image;
         } catch (IOException | RuntimeException e) {
             App.logger.warn("Could not read an icon", e);
             return null;
+        }
+    }
+
+    // Reads the pictures in the background so the first draw of a hub or a chat finds them ready.
+    public static void preload(Collection<Path> files) {
+        for (Path file : files) {
+            PRELOADER.execute(() -> load(file));
         }
     }
 
