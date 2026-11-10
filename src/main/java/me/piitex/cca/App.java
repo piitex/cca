@@ -6,6 +6,7 @@ import me.piitex.cca.config.AppearanceSettings;
 import me.piitex.cca.config.ModelSettings;
 import me.piitex.cca.model.PrivateFolders;
 import me.piitex.cca.theme.Themes;
+import me.piitex.cca.ui.GrammarChecker;
 import me.piitex.cca.ui.MenuManager;
 import me.piitex.engine.Engine;
 import me.piitex.engine.Window;
@@ -51,7 +52,7 @@ public class App {
         }
         Font.setDefaultFont(font);
 
-        window = new Window(new WindowOptions("CCA").setDimensions(appConfig.getWidth(), appConfig.getHeight()));
+        window = new Window(new WindowOptions("CCA").setIconPath("/images/icon.png").setDimensions(appConfig.getWidth(), appConfig.getHeight()));
         applyWindowSettings();
         new MenuManager(window);
 
@@ -60,6 +61,7 @@ public class App {
 
     // The API keys in model.conf are encrypted, so this has to wait until the app password (if there is one) has been entered.
     public void loadEncryptedSettings() {
+        GrammarChecker.warmUp();
         PrivateFolders.upgradeAll(environment);
         try {
             modelSettings = ModelSettings.load(environment, appConfig.getConfig());
@@ -77,6 +79,7 @@ public class App {
     public void applyWindowSettings() {
         window.setVsync(appearance.vsync.get());
         window.setMaxFPS(appearance.maxFps.get());
+        window.getWindowOptions().setSplashEnabled(false);
     }
 
     // The font ships inside the jar but the engine needs an actual file, so copy it out on the first run.
