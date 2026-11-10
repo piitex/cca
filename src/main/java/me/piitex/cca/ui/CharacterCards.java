@@ -15,6 +15,7 @@ import me.piitex.engine.ui.overlays.ImageOverlay;
 import me.piitex.engine.ui.overlays.TextOverlay;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 // The character, user and folder cards on the hubs. Settings > Characters draws its preview with these too.
@@ -83,7 +84,8 @@ public final class CharacterCards {
         }
     }
 
-    public static Container character(Look look, Face character, Runnable edit, Runnable copy, Runnable delete) {
+    // export is null when the item can't be written out as a card, there's no button then.
+    public static Container character(Look look, Face character, Runnable edit, Runnable copy, Runnable export, Runnable delete) {
         // No click handlers on the card itself. The grid reports clicks on release since a press could turn into a drag.
         Container card = base(look);
 
@@ -91,17 +93,21 @@ public final class CharacterCards {
         image.setPosition(PADDING, PADDING);
         card.addElement(image);
 
-        TextOverlay name = new TextOverlay(character.name(), 15f, Components.theme().getText());
+        TextOverlay name = new TextOverlay(character.name(), 15f, Palette.text());
         double nameY = PADDING + look.imageSize() + 8;
         name.setPosition((look.width() - name.getWidth()) / 2.0, nameY);
         name.setCursorMode(CursorMode.POINTER);
         card.addElement(name);
 
         if (look.buttons()) {
-            addControls(card, look, nameY + name.getHeight() + 10,
-                    Components.iconButton(Feather.EDIT, "Edit character", Components.CONTROL_EDIT, Components.CONTROL_EDIT_HOVER, edit),
-                    Components.iconButton(Feather.COPY, "Duplicate character", Components.CONTROL_COPY, Components.CONTROL_COPY_HOVER, copy),
-                    Components.iconButton(Feather.TRASH, "Delete character", Components.CONTROL_DANGER, Components.CONTROL_DANGER_HOVER, delete));
+            List<Container> controls = new ArrayList<>();
+            controls.add(Components.iconButton(Feather.EDIT, "Edit character", Components.CONTROL_EDIT, Components.CONTROL_EDIT_HOVER, edit));
+            controls.add(Components.iconButton(Feather.COPY, "Duplicate character", Components.CONTROL_COPY, Components.CONTROL_COPY_HOVER, copy));
+            if (export != null) {
+                controls.add(Components.iconButton(Feather.DOWNLOAD, "Export as card", Components.CONTROL_CONTINUE, Components.CONTROL_CONTINUE_HOVER, export));
+            }
+            controls.add(Components.iconButton(Feather.TRASH, "Delete character", Components.CONTROL_DANGER, Components.CONTROL_DANGER_HOVER, delete));
+            addControls(card, look, nameY + name.getHeight() + 10, controls.toArray(new Container[0]));
         }
         return card;
     }
@@ -118,7 +124,7 @@ public final class CharacterCards {
 
         if (members.isEmpty() || !look.folderPortraits()) {
             IconOverlay icon = new IconOverlay(Feather.FOLDER, 48, 48);
-            icon.setTint(Palette.accent());
+            icon.setTint(Palette.accentColor());
             icon.setPosition((imageSize - 48) / 2.0, (imageSize - 48) / 2.0);
             preview.addElement(icon);
         } else {
@@ -133,7 +139,7 @@ public final class CharacterCards {
                     mini.getStyling().setCornerRadius(tileRadius);
                     mini.getStyling().setBorderThickness(0f);
                     Components.fill(mini, Palette.tintStrong());
-                    TextOverlay more = new TextOverlay("+" + (members.size() - 3), 18f, Components.theme().getText());
+                    TextOverlay more = new TextOverlay("+" + (members.size() - 3), 18f, Palette.text());
                     more.setPosition((tile - more.getWidth()) / 2.0, (tile - more.getHeight()) / 2.0);
                     mini.addElement(more);
                 } else {
@@ -146,7 +152,7 @@ public final class CharacterCards {
         preview.setPosition(PADDING, PADDING);
         card.addElement(preview);
 
-        TextOverlay name = Components.fitText(folderName, 15f, Components.theme().getText(), look.width() - 2 * PADDING);
+        TextOverlay name = Components.fitText(folderName, 15f, Palette.text(), look.width() - 2 * PADDING);
         double nameY = PADDING + imageSize + 8;
         name.setPosition((look.width() - name.getWidth()) / 2.0, nameY);
         name.setCursorMode(CursorMode.POINTER);

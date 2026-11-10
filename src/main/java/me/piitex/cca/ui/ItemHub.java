@@ -68,9 +68,16 @@ public abstract class ItemHub<T extends HubItem> {
 
     protected abstract void create();
 
-    protected abstract boolean idTaken(String id);
+    // Opens the creator filled in from the item, it saves as a new one.
+    protected abstract void duplicateItem(T item);
 
-    protected abstract T copy(T item, String newId) throws IOException;
+    // Only the characters can be written out as cards for now.
+    protected boolean canExport() {
+        return false;
+    }
+
+    protected void exportItem(T item) {
+    }
 
     // Deletes it from disk. The hub takes it off the page.
     protected abstract void erase(T item) throws IOException;
@@ -81,6 +88,10 @@ public abstract class ItemHub<T extends HubItem> {
 
     public void add(T item) {
         layout.add(item);
+    }
+
+    public void addBeside(T original, T item) {
+        layout.addBeside(original, item);
     }
 
     // New (Character or User), New Folder and Sort A-Z from right to left. Returns the bottom of the buttons.
@@ -181,8 +192,8 @@ public abstract class ItemHub<T extends HubItem> {
         Components.clearStyle(box);
 
         box.addElement(Components.gradientBadge(64, Feather.USERS, 28));
-        box.addElement(new TextOverlay("No " + noun().toLowerCase() + "s yet", 16f, Components.theme().getText()));
-        box.addElement(new TextOverlay(emptyHint(), 13f, Components.theme().getPlaceholderText()));
+        box.addElement(new TextOverlay("No " + noun().toLowerCase() + "s yet", 16f, Palette.text()));
+        box.addElement(new TextOverlay(emptyHint(), 13f, Palette.muted()));
 
         ButtonOverlay create = Components.accentButton("Create " + noun(), 15f, 200, 46);
         create.onAction(this::create);
@@ -245,7 +256,7 @@ public abstract class ItemHub<T extends HubItem> {
         double panelWidth = gridWidth + 2 * pad;
         Container panel = new Container(panelWidth, pad + headerHeight + gridHeight + pad);
         Components.fill(panel, Palette.panel(App.instance.getAppearance().popoutOpacity.get().floatValue()));
-        panel.getStyling().setBorderColor(Components.theme().getContainerBorder());
+        panel.getStyling().setBorderColor(Palette.border());
         panel.getStyling().setBorderThickness(1f);
         panel.getStyling().setCornerRadius(20f);
         // Can be dragged by anything that isn't a card or a button.
@@ -265,7 +276,7 @@ public abstract class ItemHub<T extends HubItem> {
 
         boolean sorted = layout.membersAreByName(folder);
         double buttonsWidth = 80 + 8 + (sorted ? 0 : 100 + 8);
-        TextOverlay title = Components.fitText(folder.getName(), 20f, Components.theme().getText(), panelWidth - 2 * pad - buttonsWidth - 12);
+        TextOverlay title = Components.fitText(folder.getName(), 20f, Palette.text(), panelWidth - 2 * pad - buttonsWidth - 12);
         title.setPosition(pad, pad);
         panel.addElement(title);
 
@@ -285,7 +296,7 @@ public abstract class ItemHub<T extends HubItem> {
         }
 
         if (members.isEmpty()) {
-            TextOverlay empty = new TextOverlay("This folder is empty", 16f, Components.theme().getText());
+            TextOverlay empty = new TextOverlay("This folder is empty", 16f, Palette.text());
             empty.setPosition((panelWidth - empty.getWidth()) / 2.0, pad + headerHeight + (gridHeight - empty.getHeight()) / 2.0);
             panel.addElement(empty);
         } else {
@@ -424,7 +435,8 @@ public abstract class ItemHub<T extends HubItem> {
         }
         menu.addSeparator();
         menu.add("Edit", () -> edit(item));
-        menu.add("Duplicate", () -> duplicate(item));
+        menu.add("Duplicate", () -> duplicateItem(item));
+        if (canExport()) menu.add("Export as card...", () -> exportItem(item));
         menu.add("Delete", () -> confirmDelete(item));
         return menu;
     }
@@ -457,23 +469,6 @@ public abstract class ItemHub<T extends HubItem> {
             popoutFolder = open;
             onConfirm.accept(name);
         }, () -> Scheduler.runLater(() -> reopenPopout(open)));
-    }
-
-    // Copies to <id>-copy (or -copy-2 and so on) and puts it right next to the original.
-    private void duplicate(T item) {
-        String baseId = item.getId() + "-copy";
-        String newId = baseId;
-        int suffix = 2;
-        while (idTaken(newId)) {
-            newId = baseId + "-" + suffix++;
-        }
-        try {
-            layout.addBeside(item, copy(item, newId));
-            App.logger.info("Duplicated {} '{}' to '{}'", noun().toLowerCase(), item.getId(), newId);
-            owner.renderContent();
-        } catch (IOException e) {
-            App.logger.error("Could not duplicate {} '{}'", noun().toLowerCase(), item.getId(), e);
-        }
     }
 
     // Deleting can't be undone, so always ask first.
@@ -511,7 +506,7 @@ public abstract class ItemHub<T extends HubItem> {
 
     private Container card(T item) {
         return CharacterCards.character(look, CharacterCards.Face.of(item),
-                () -> edit(item), () -> duplicate(item), () -> confirmDelete(item));
+                () -> edit(item), () -> duplicateItem(item), canExport() ? () -> exportItem(item) : null, () -> confirmDelete(item));
     }
 
     private Container folderCard(Folder folder) {

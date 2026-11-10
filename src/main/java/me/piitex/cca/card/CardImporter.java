@@ -29,8 +29,10 @@ public final class CardImporter {
     }
 
     // Fields a card format doesn't have are empty, never null.
+    // Placeholders, the reply format and the chat background (the encoded picture, or null) only come from cards this app exported, see CardExporter.
     public record CardData(String id, String displayName, String persona, String firstMessage,
-                           String scenario, Map<String, String> lorebook) {
+                           String scenario, Map<String, String> lorebook, Map<String, String> placeholders,
+                           String replyFormat, boolean strictFormat, byte[] background) {
     }
 
     // SillyTavern uses the "chara" text chunk, BackyardAI puts it in the EXIF UserComment (checked first).
@@ -59,7 +61,28 @@ public final class CardImporter {
         String scenario = firstNonEmpty(card, "scenario");
         if (scenario.isEmpty() && data != null) scenario = firstNonEmpty(data, "scenario");
 
-        return new CardData(id, displayName, persona, firstMessage, scenario, loreItems(card, data));
+        JSONObject extensions = data == null ? null : data.optJSONObject("extensions");
+        JSONObject cca = extensions == null ? null : extensions.optJSONObject("cca");
+        Map<String, String> placeholders = new LinkedHashMap<>();
+        JSONObject names = cca == null ? null : cca.optJSONObject("placeholders");
+        if (names != null) {
+            for (String name : names.keySet()) placeholders.put(name, names.optString(name, ""));
+        }
+        String replyFormat = cca == null ? "" : cca.optString("replyFormat", "");
+        boolean strictFormat = cca != null && cca.optBoolean("strictFormat", false);
+
+        return new CardData(id, displayName, persona, firstMessage, scenario, loreItems(card, data), placeholders, replyFormat, strictFormat,
+                background(cca));
+    }
+
+    private static byte[] background(JSONObject cca) {
+        String encoded = cca == null ? "" : cca.optString("background", "");
+        if (encoded.isEmpty()) return null;
+        try {
+            return Base64.getDecoder().decode(encoded);
+        } catch (IllegalArgumentException notBase64) {
+            return null;
+        }
     }
 
     // SillyTavern's "user" text chunk. BackyardAI doesn't export user cards.
@@ -72,7 +95,7 @@ public final class CardImporter {
 
         String displayName = card.optString("userDisplay", "");
         String persona = card.optString("userPersona", "");
-        return new CardData("", displayName, persona, "", "", loreItems(card, null));
+        return new CardData("", displayName, persona, "", "", loreItems(card, null), Map.of(), "", false, null);
     }
 
     private static JSONObject findEmbeddedJson(File file, boolean checkExif, String keyword) throws ImageProcessingException, IOException {
