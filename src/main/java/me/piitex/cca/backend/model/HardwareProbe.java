@@ -4,6 +4,7 @@ import me.piitex.cca.App;
 import me.piitex.cca.backend.local.LlamaAsset;
 import me.piitex.cca.config.ModelSettings;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.Inet4Address;
@@ -36,25 +37,33 @@ public final class HardwareProbe {
 
     private static final Pattern DEVICE_LINE = Pattern.compile("^\\s*([^:\\s]+):\\s*(.*?)\\s*\\((\\d+) MiB, (\\d+) MiB free\\)\\s*$");
 
-    private static List<Device> cached;
+    // Read without a lock so the render thread never waits behind a probe, which starts a process and can be slow.
+    private static volatile List<Device> cached;
+    private static final Object PROBE_LOCK = new Object();
 
     private HardwareProbe() {
     }
 
     // Empty if there are none or the server isn't installed yet.
-    public static synchronized List<Device> gpus() {
-        if (cached == null) cached = probe();
-        return cached;
+    public static List<Device> gpus() {
+        List<Device> found = cached;
+        if (found != null) return found;
+        synchronized (PROBE_LOCK) {
+            if (cached == null) cached = probe();
+            return cached;
+        }
     }
 
     // Null if nothing has probed yet. For callers that can't wait.
-    public static synchronized List<Device> cachedGpus() {
+    public static List<Device> cachedGpus() {
         return cached;
     }
 
-    public static synchronized List<Device> refresh() {
-        cached = probe();
-        return cached;
+    public static List<Device> refresh() {
+        synchronized (PROBE_LOCK) {
+            cached = probe();
+            return cached;
+        }
     }
 
     // The override if one is set, otherwise the selected device, otherwise all GPUs added up. 0 if unknown.
@@ -107,8 +116,21 @@ public final class HardwareProbe {
             builder.directory(executable.getParent().toFile());
             builder.redirectErrorStream(true);
             Process process = builder.start();
-            byte[] output = process.getInputStream().readAllBytes();
-            if (!process.waitFor(20, TimeUnit.SECONDS)) process.destroyForcibly();
+            // Read on another thread, otherwise a server that hangs would never get to the timeout.
+            ByteArrayOutputStream collected = new ByteArrayOutputStream();
+            Thread reader = Thread.ofVirtual().name("gpu-probe-output").start(() -> {
+                try {
+                    process.getInputStream().transferTo(collected);
+                } catch (IOException ignored) {
+                    // The process was stopped, whatever it printed so far is used.
+                }
+            });
+            if (!process.waitFor(20, TimeUnit.SECONDS)) {
+                App.logger.warn("Listing llama.cpp devices took too long, stopping it.");
+                process.destroyForcibly();
+            }
+            reader.join(2000);
+            byte[] output = collected.toByteArray();
 
             List<Device> devices = new ArrayList<>();
             for (String line : new String(output, StandardCharsets.UTF_8).split("\\R")) {

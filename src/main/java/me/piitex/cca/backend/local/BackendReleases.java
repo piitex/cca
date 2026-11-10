@@ -40,26 +40,32 @@ public final class BackendReleases {
     public record Result(List<Listing> listings, Instant checked) {
     }
 
-    private static Result cached;
+    // Read without a lock, a lookup holds the fetch lock for as long as GitHub takes to answer.
+    private static volatile Result cached;
+    private static final Object FETCH_LOCK = new Object();
 
     private BackendReleases() {
     }
 
     // Blocks on the network, so only call it from a background thread.
-    public static synchronized Result fetch(boolean force) throws IOException, InterruptedException {
-        if (!force && cached != null && Instant.now().isBefore(cached.checked().plus(REUSE_FOR))) return cached;
+    public static Result fetch(boolean force) throws IOException, InterruptedException {
+        synchronized (FETCH_LOCK) {
+            Result last = cached;
+            if (!force && last != null && Instant.now().isBefore(last.checked().plus(REUSE_FOR))) return last;
 
-        List<Release> releases = new GitHubReleaseFinder(OWNER, REPO).recent(RELEASES_LOOKED_AT);
-        List<Listing> listings = new ArrayList<>();
-        for (BackendVariant variant : BackendCatalog.forCurrentSystem()) {
-            listings.add(new Listing(variant, newest(variant, releases)));
+            List<Release> releases = new GitHubReleaseFinder(OWNER, REPO).recent(RELEASES_LOOKED_AT);
+            List<Listing> listings = new ArrayList<>();
+            for (BackendVariant variant : BackendCatalog.forCurrentSystem()) {
+                listings.add(new Listing(variant, newest(variant, releases)));
+            }
+            Result fresh = new Result(List.copyOf(listings), Instant.now());
+            cached = fresh;
+            return fresh;
         }
-        cached = new Result(List.copyOf(listings), Instant.now());
-        return cached;
     }
 
     // Null if nothing has been fetched yet.
-    public static synchronized Result cachedResult() {
+    public static Result cachedResult() {
         return cached;
     }
 
