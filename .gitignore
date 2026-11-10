@@ -41,3 +41,12 @@ build/
 ### J-Package/App Environment
 dist/
 app/
+
+### Local data, logs and secrets
+run/
+out/
+*.log
+secret.key
+
+### Claude Code
+.claude/
