@@ -3,9 +3,11 @@ package me.piitex.cca.ui.creator;
 import me.piitex.cca.App;
 import me.piitex.cca.theme.Palette;
 import me.piitex.cca.ui.Components;
+import me.piitex.cca.ui.FieldWarning;
 import me.piitex.cca.ui.MainMenu;
 import me.piitex.engine.ui.Element;
 import me.piitex.engine.ui.color.Color;
+import me.piitex.engine.ui.color.Paint;
 import me.piitex.engine.ui.containers.Container;
 import me.piitex.engine.ui.containers.ModalContainer;
 import me.piitex.engine.ui.icons.Feather;
@@ -39,7 +41,7 @@ final class LorebookStep {
         keywordField = new TextFieldOverlay(10, 36);
         keywordField.setPlaceholder("Keyword, e.g. sword");
 
-        contentField = new TextAreaOverlay(10, 90);
+        contentField = Components.textArea(90);
         contentField.setPlaceholder("What the AI should know when this keyword comes up...");
     }
 
@@ -55,7 +57,7 @@ final class LorebookStep {
         TextFlowOverlay intro = new TextFlowOverlay(
                 "Optional. Add a keyword and what the AI should know when it comes up in the chat — "
                         + "its entry is folded into the prompt whenever the keyword appears.",
-                fieldWidth, 12f, theme.getPlaceholderText());
+                fieldWidth, 12f, Palette.muted());
         intro.setPosition(0, 0);
         scroll.addElement(intro);
         double y = intro.getHeight() + 16;
@@ -70,7 +72,7 @@ final class LorebookStep {
         y += 36 + 22;
 
         if (entries.isEmpty()) {
-            TextOverlay empty = new TextOverlay("No entries yet.", 12f, theme.getPlaceholderText());
+            TextOverlay empty = new TextOverlay("No entries yet.", 12f, Palette.muted());
             empty.setPosition(0, y);
             scroll.addElement(empty);
         } else {
@@ -88,13 +90,13 @@ final class LorebookStep {
         double innerWidth = Math.max(0, width - 2 * CARD_PADDING - actionsWidth);
 
         TextOverlay keywordText = new TextOverlay(keyword, 13f, Palette.accent());
-        TextFlowOverlay contentText = new TextFlowOverlay(content.isEmpty() ? "(empty)" : content, innerWidth, 12f, theme.getPlaceholderText());
+        TextFlowOverlay contentText = new TextFlowOverlay(content.isEmpty() ? "(empty)" : content, innerWidth, 12f, Palette.muted());
         double cardHeight = CARD_PADDING + keywordText.getHeight() + 6 + contentText.getHeight() + CARD_PADDING;
 
         Container card = new Container(width, cardHeight);
-        Components.fill(card, theme.getFieldBackground());
+        Components.fill(card, Palette.field());
         card.getStyling().setBorderThickness(1f);
-        card.getStyling().setBorderColor(theme.getContainerBorder());
+        card.getStyling().setBorderColor(Palette.border());
         card.getStyling().setCornerRadius(14f);
 
         keywordText.setPosition(CARD_PADDING, CARD_PADDING);
@@ -103,8 +105,8 @@ final class LorebookStep {
         contentText.setPosition(CARD_PADDING, CARD_PADDING + keywordText.getHeight() + 6);
         card.addElement(contentText);
 
-        Color tint = theme.getPlaceholderText();
-        Color hover = theme.getButtonHoverBackground();
+        Color tint = Palette.mutedColor();
+        Paint hover = Palette.buttonHover();
         Container editButton = Components.iconButton(Feather.EDIT, "Edit entry", 28, 16, 8f, tint, hover, () -> edit(keyword, content));
         editButton.setPosition(width - CARD_PADDING - 2 * 28 - 6, CARD_PADDING - 4);
         card.addElement(editButton);
@@ -123,7 +125,10 @@ final class LorebookStep {
 
     private void add() {
         String keyword = keywordField.getText().trim();
-        if (keyword.isEmpty()) return;
+        if (keyword.isEmpty()) {
+            FieldWarning.show(keywordField, "Keyword is required.");
+            return;
+        }
         entries.put(keyword, contentField.getText().trim());
         keywordField.setText("");
         contentField.setText("");
@@ -133,14 +138,15 @@ final class LorebookStep {
     private void edit(String keyword, String content) {
         double width = 380, fieldWidth = width - 48;
         VerticalLayout panel = Components.dialogPanel(width, 340);
-        panel.addElement(new TextOverlay("Edit Lore Entry", 16f, theme.getText()));
+        panel.addElement(new TextOverlay("Edit Lore Entry", 16f, Palette.text()));
 
         TextFieldOverlay keywordInput = new TextFieldOverlay(fieldWidth, 36);
         keywordInput.setPlaceholder("Keyword, e.g. sword");
         keywordInput.setText(keyword);
         panel.addElement(keywordInput);
 
-        TextAreaOverlay contentInput = new TextAreaOverlay(fieldWidth, 150);
+        TextAreaOverlay contentInput = Components.textArea(150);
+        contentInput.setWidth(fieldWidth);
         contentInput.setPlaceholder("What the AI should know when this keyword comes up...");
         contentInput.setText(content);
         panel.addElement(contentInput);
@@ -149,7 +155,10 @@ final class LorebookStep {
         ButtonOverlay save = Components.accentButton("Save", 13f, (fieldWidth - 12) / 2, 38);
         save.onAction(() -> {
             String newKeyword = keywordInput.getText().trim();
-            if (newKeyword.isEmpty()) return;
+            if (newKeyword.isEmpty()) {
+                FieldWarning.show(keywordInput, "Keyword is required.");
+                return;
+            }
             // A rename, so drop the old key instead of leaving a duplicate behind.
             if (!newKeyword.equals(keyword)) {
                 entries.remove(keyword);

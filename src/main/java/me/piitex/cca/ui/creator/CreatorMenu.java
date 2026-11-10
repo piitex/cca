@@ -1,9 +1,11 @@
 package me.piitex.cca.ui.creator;
 
+import me.piitex.cca.background.ImageBackground;
 import me.piitex.cca.crypto.ProtectedImages;
 import me.piitex.cca.theme.Palette;
 import me.piitex.cca.ui.Components;
 import me.piitex.cca.ui.ContentMenu;
+import me.piitex.cca.ui.FieldWarning;
 import me.piitex.cca.ui.MainMenu;
 import me.piitex.engine.input.FileDialog;
 import me.piitex.engine.ui.CursorMode;
@@ -17,6 +19,7 @@ import me.piitex.engine.ui.overlays.ImageOverlay;
 import me.piitex.engine.ui.overlays.TextOverlay;
 import me.piitex.engine.ui.scroll.ScrollContainer;
 import me.piitex.engine.ui.theme.Theme;
+import org.jetbrains.skia.Image;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -44,6 +47,7 @@ public abstract class CreatorMenu implements ContentMenu {
     private static final double STEP_GAP = 20;
     private static final double NAV_ROW_HEIGHT = 48;
     private static final double ICON_PREVIEW_SIZE = 84;
+    private static final double BACKGROUND_PREVIEW_WIDTH = 150;
 
     private record StepPill(Container badge, Container dot, TextOverlay label) {
     }
@@ -65,6 +69,33 @@ public abstract class CreatorMenu implements ContentMenu {
 
     // Shows the green dot on the step's pill.
     protected abstract boolean isStepValid(int step);
+
+    // A field that can't be saved as it is, the step it's on and what's wrong with it.
+    protected record Problem(int step, Element field, String message) {
+    }
+
+    // The first thing wrong, in step order, or null when it can be saved.
+    protected Problem findProblem() {
+        return null;
+    }
+
+    // Call before saving. A problem takes them to its step, puts the cursor in the field and says what's wrong.
+    protected boolean checkValid() {
+        Problem problem = findProblem();
+        if (problem == null) return true;
+        activeStep = problem.step();
+        error = null;
+        owner.renderContent();
+        FieldWarning.show(problem.field(), problem.message());
+        return false;
+    }
+
+    // A required field changed, so its warning is out of date.
+    protected void fieldEdited() {
+        error = null;
+        FieldWarning.clear();
+        highlightSteps();
+    }
 
     private boolean isFinishStep() {
         return activeStep == stepLabels().length - 1;
@@ -117,12 +148,12 @@ public abstract class CreatorMenu implements ContentMenu {
     // The click area is padded well past the number and label so it's easy to hit.
     // Every child gets the click handler too since clicks on a child don't reach the pill.
     private Container buildStepPill(int step, String label) {
-        TextOverlay labelText = new TextOverlay(label, 13f, theme.getPlaceholderText());
+        TextOverlay labelText = new TextOverlay(label, 13f, Palette.muted());
         double pillWidth = 2 * PILL_PAD_X + STEP_BADGE + 10 + labelText.getWidth();
 
         Container box = new Container(pillWidth, PILL_HEIGHT);
         box.getStyling().setBackgroundColor(Color.TRANSPARENT);
-        box.getStyling().setHoverColor(theme.getButtonHoverBackground());
+        box.getStyling().setHoverColor(Palette.buttonHover());
         box.getStyling().setBorderThickness(0f);
         box.getStyling().setCornerRadius(10f);
         clickable(box, step);
@@ -172,8 +203,8 @@ public abstract class CreatorMenu implements ContentMenu {
         for (int i = 0; i < stepPills.size(); i++) {
             StepPill pill = stepPills.get(i);
             boolean active = i == activeStep;
-            Components.fill(pill.badge(), active ? Palette.accent() : theme.getContainerBorder());
-            pill.label().setTextColor(active ? theme.getText() : theme.getPlaceholderText());
+            Components.fill(pill.badge(), active ? Palette.accent() : Palette.border());
+            pill.label().setTextColor(active ? Palette.text() : Palette.muted());
             Components.fill(pill.dot(), isStepValid(i) ? Components.VALID : Color.TRANSPARENT);
         }
     }
@@ -199,7 +230,7 @@ public abstract class CreatorMenu implements ContentMenu {
 
     // A label with the field under it. Returns the y for the next one.
     protected double placeField(ScrollContainer scroll, String label, Element field, double y, double width, double fieldHeight) {
-        TextOverlay labelText = new TextOverlay(label, 13f, theme.getPlaceholderText());
+        TextOverlay labelText = new TextOverlay(label, 13f, Palette.muted());
         labelText.setPosition(0, y);
         scroll.addElement(labelText);
 
@@ -217,7 +248,7 @@ public abstract class CreatorMenu implements ContentMenu {
         double buttonWidth = Math.min(180, width);
         ButtonOverlay importButton = Components.secondaryButton("Import Card...", 13f, buttonWidth, 36);
         importButton.getStyling().setBorderThickness(1f);
-        importButton.getStyling().setBorderColor(theme.getContainerBorder());
+        importButton.getStyling().setBorderColor(Palette.border());
         importButton.setPosition(0, y);
         importButton.onAction(onImport);
         scroll.addElement(importButton);
@@ -243,32 +274,48 @@ public abstract class CreatorMenu implements ContentMenu {
 
     // For a second icon on the same form, like the character's user. Null means none is picked.
     protected double placeIconField(ScrollContainer scroll, double y, double width, Path icon, Consumer<Path> setIcon) {
-        TextOverlay labelText = new TextOverlay("Icon", 13f, theme.getPlaceholderText());
+        return placeImageField(scroll, "Icon", y, width, icon, setIcon, ICON_PREVIEW_SIZE, false);
+    }
+
+    // A wide thumbnail with the picture cropped to fill it, since a background is not square like an icon.
+    protected double placeBackgroundField(ScrollContainer scroll, String label, double y, double width, Path image, Consumer<Path> setImage) {
+        return placeImageField(scroll, label, y, width, image, setImage, BACKGROUND_PREVIEW_WIDTH, true);
+    }
+
+    private double placeImageField(ScrollContainer scroll, String label, double y, double width, Path icon, Consumer<Path> setIcon,
+                                   double previewWidth, boolean cropped) {
+        TextOverlay labelText = new TextOverlay(label, 13f, Palette.muted());
         labelText.setPosition(0, y);
         scroll.addElement(labelText);
 
         double rowY = y + labelText.getHeight() + 6;
         Container row = Components.transparent(width, ICON_PREVIEW_SIZE);
 
-        Container preview = new Container(ICON_PREVIEW_SIZE, ICON_PREVIEW_SIZE);
+        Container preview = new Container(previewWidth, ICON_PREVIEW_SIZE);
         preview.getStyling().setCornerRadius(14f);
         preview.getStyling().setBorderThickness(1f);
-        preview.getStyling().setBorderColor(theme.getContainerBorder());
-        ImageOverlay image = icon == null ? null : ProtectedImages.overlay(icon, ICON_PREVIEW_SIZE, ICON_PREVIEW_SIZE);
-        if (image != null) {
+        preview.getStyling().setBorderColor(Palette.border());
+        Image loaded = icon == null ? null : ProtectedImages.load(icon);
+        ImageOverlay image = loaded == null || cropped ? null : ImageOverlay.of(loaded, previewWidth, ICON_PREVIEW_SIZE);
+        if (loaded != null && cropped) {
+            ImageBackground picture = new ImageBackground();
+            picture.setImage(loaded);
+            picture.setCornerRadius(14f);
+            preview.setBackground(picture);
+        } else if (image != null) {
             Components.fill(preview, Color.TRANSPARENT);
             image.getStyling().setCornerRadius(14f);
             preview.addElement(image);
         } else {
-            Components.fill(preview, theme.getFieldBackground());
+            Components.fill(preview, Palette.field());
             IconOverlay placeholder = new IconOverlay(Feather.IMAGE, 28, 28);
-            placeholder.setTint(theme.getPlaceholderText());
-            placeholder.setPosition((ICON_PREVIEW_SIZE - 28) / 2.0, (ICON_PREVIEW_SIZE - 28) / 2.0);
+            placeholder.setTint(Palette.mutedColor());
+            placeholder.setPosition((previewWidth - 28) / 2.0, (ICON_PREVIEW_SIZE - 28) / 2.0);
             preview.addElement(placeholder);
         }
         row.addElement(preview);
 
-        double buttonX = ICON_PREVIEW_SIZE + 16;
+        double buttonX = previewWidth + 16;
         double buttonWidth = Math.max(0, Math.min(160, width - buttonX));
 
         ButtonOverlay choose = Components.secondaryButton(icon == null ? "Choose Image" : "Change Image", 13f, buttonWidth, 36);

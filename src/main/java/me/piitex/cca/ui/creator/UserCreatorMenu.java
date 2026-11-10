@@ -4,6 +4,7 @@ import com.drew.imaging.ImageProcessingException;
 import me.piitex.cca.App;
 import me.piitex.cca.card.CardImporter;
 import me.piitex.cca.model.User;
+import me.piitex.cca.theme.Palette;
 import me.piitex.cca.ui.Components;
 import me.piitex.cca.ui.MainMenu;
 import me.piitex.engine.input.FileDialog;
@@ -29,6 +30,7 @@ public class UserCreatorMenu extends CreatorMenu {
     private TextFieldOverlay idField;
     private TextAreaOverlay personaField;
     private final LorebookStep lore;
+    private final PlaceholderList placeholders;
 
     // The id follows the name until they type in the id field themselves.
     private boolean idEdited = false;
@@ -40,19 +42,38 @@ public class UserCreatorMenu extends CreatorMenu {
         this(owner, null);
     }
 
+    // Set when duplicating: the fields start as a copy of this one, but it saves as a new user.
+    private final User duplicateOf;
+
     public UserCreatorMenu(MainMenu owner, User editing) {
+        this(owner, editing, null);
+    }
+
+    public static UserCreatorMenu duplicating(MainMenu owner, User original) {
+        return new UserCreatorMenu(owner, null, original);
+    }
+
+    private UserCreatorMenu(MainMenu owner, User editing, User duplicateOf) {
         super(owner);
         this.editing = editing;
+        this.duplicateOf = duplicateOf;
         this.lore = new LorebookStep(this, owner);
+        this.placeholders = new PlaceholderList(owner);
         initFields();
-        if (editing != null) {
-            nameField.setText(editing.getDisplayName());
-            idField.setText(editing.getId());
-            idField.setReadOnly(true);
+        User source = editing != null ? editing : duplicateOf;
+        if (source != null) {
+            nameField.setText(source.getDisplayName());
+            if (editing != null) {
+                idField.setText(editing.getId());
+                idField.setReadOnly(true);
+            } else {
+                idField.setText(uniqueId(source.getId() + "-copy", candidate -> User.exists(App.environment, candidate)));
+            }
             idEdited = true;
-            personaField.setText(editing.getPersona());
-            lore.entries().putAll(editing.getLorebook());
-            Path icon = Path.of(editing.getIconPath());
+            personaField.setText(source.getPersona());
+            lore.entries().putAll(source.getLorebook());
+            placeholders.entries().putAll(source.getPlaceholders());
+            Path icon = Path.of(source.getIconPath());
             if (Files.isRegularFile(icon)) {
                 pendingIconFile = icon;
             }
@@ -93,22 +114,20 @@ public class UserCreatorMenu extends CreatorMenu {
         idField.setPlaceholder("auto-generated from name");
         idField.onTextChanged(text -> {
             idEdited = true;
-            error = null;
-            highlightSteps();
+            fieldEdited();
         });
 
         nameField = new TextFieldOverlay(10, 36);
         nameField.setPlaceholder("e.g. Alex");
         nameField.onTextChanged(text -> {
-            error = null;
             // setText doesn't fire idField's listener, so this can't flip idEdited on its own.
             if (!idEdited) {
                 idField.setText(slugify(text));
             }
-            highlightSteps();
+            fieldEdited();
         });
 
-        personaField = new TextAreaOverlay(10, 200);
+        personaField = Components.textArea(200);
         personaField.setPlaceholder("Personality, appearance, how you come across...");
     }
 
@@ -124,7 +143,8 @@ public class UserCreatorMenu extends CreatorMenu {
         y = placeField(scroll, "Name", nameField, y, fieldWidth, 36);
         y = placeField(scroll, "User ID", idField, y, fieldWidth, 36);
         y = placeIconField(scroll, y, fieldWidth);
-        placeField(scroll, "Personality", personaField, y, fieldWidth, 200);
+        y = placeField(scroll, "Personality", personaField, y, fieldWidth, 200);
+        placeholders.place(scroll, "the user's", y, fieldWidth);
         return scroll;
     }
 
@@ -163,7 +183,7 @@ public class UserCreatorMenu extends CreatorMenu {
         double y = 0;
 
         String name = nameField.getText().trim();
-        TextOverlay nameText = new TextOverlay("Name: " + (name.isEmpty() ? "(not set)" : name), 15f, theme.getText());
+        TextOverlay nameText = new TextOverlay("Name: " + (name.isEmpty() ? "(not set)" : name), 15f, Palette.text());
         nameText.setPosition(0, y);
         scroll.addElement(nameText);
         y += nameText.getHeight() + 8;
@@ -171,13 +191,13 @@ public class UserCreatorMenu extends CreatorMenu {
         int entries = lore.entries().size();
         String summary = (pendingIconFile != null ? "Icon set" : "No icon") + " · "
                 + entries + (entries == 1 ? " lorebook entry" : " lorebook entries");
-        TextOverlay summaryText = new TextOverlay(summary, 12f, theme.getPlaceholderText());
+        TextOverlay summaryText = new TextOverlay(summary, 12f, Palette.muted());
         summaryText.setPosition(0, y);
         scroll.addElement(summaryText);
         y += summaryText.getHeight() + 14;
 
         String persona = personaField.getText().trim();
-        TextFlowOverlay personaPreview = new TextFlowOverlay(persona.isEmpty() ? "No personality set." : persona, fieldWidth, 13f, theme.getPlaceholderText());
+        TextFlowOverlay personaPreview = new TextFlowOverlay(persona.isEmpty() ? "No personality set." : persona, fieldWidth, 13f, Palette.muted());
         personaPreview.setPosition(0, y);
         scroll.addElement(personaPreview);
         y += personaPreview.getHeight() + 20;
@@ -192,13 +212,24 @@ public class UserCreatorMenu extends CreatorMenu {
         return scroll;
     }
 
-    private void submit() {
-        String name = nameField.getText().trim();
-        if (name.isEmpty()) {
-            error = "Name is required before creating.";
-            owner.renderContent();
-            return;
+    // A name, and a new user an id nobody has.
+    @Override
+    protected Problem findProblem() {
+        if (nameField.getText().trim().isEmpty()) {
+            return new Problem(DETAILS, nameField, "User name is required.");
         }
+        if (editing == null) {
+            String typedId = slugify(idField.getText().trim());
+            if (!typedId.isEmpty() && User.exists(App.environment, typedId)) {
+                return new Problem(DETAILS, idField, "That user ID is already taken.");
+            }
+        }
+        return null;
+    }
+
+    private void submit() {
+        if (!checkValid()) return;
+        String name = nameField.getText().trim();
 
         User user;
         String id;
@@ -207,21 +238,17 @@ public class UserCreatorMenu extends CreatorMenu {
             id = editing.getId();
         } else {
             String typedId = slugify(idField.getText().trim());
-            if (typedId.isEmpty()) {
-                id = uniqueId(name, candidate -> User.exists(App.environment, candidate));
-            } else if (User.exists(App.environment, typedId)) {
-                error = "That user ID is already taken.";
-                owner.renderContent();
-                return;
-            } else {
-                id = typedId;
-            }
+            id = typedId.isEmpty() ? uniqueId(name, candidate -> User.exists(App.environment, candidate)) : typedId;
             user = new User(App.environment, id);
         }
+
+        // Typed but never added would be lost otherwise.
+        placeholders.commit();
 
         user.setDisplayName(name);
         user.setPersona(personaField.getText().trim());
         user.setLorebook(lore.entries());
+        user.setPlaceholders(placeholders.entries());
         if (pendingIconFile != null) {
             try {
                 user.setIconFile(pendingIconFile);
@@ -239,7 +266,7 @@ public class UserCreatorMenu extends CreatorMenu {
         if (editing != null) {
             owner.onUserEdited(user);
         } else {
-            owner.onUserCreated(user);
+            owner.onUserCreated(user, duplicateOf);
         }
     }
 }

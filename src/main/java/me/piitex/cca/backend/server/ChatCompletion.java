@@ -17,6 +17,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -48,22 +49,33 @@ public final class ChatCompletion {
     private final ModelSettings settings = App.instance.getModelSettings();
     private final JSONArray messages;
     private final String userName;
+    // The other characters in a group chat, the reply must not continue as them either.
+    private final List<String> otherNames;
     private final int maxTokens;
+    // GBNF the reply has to follow, null for none. Only the local server gets it.
+    private final String grammar;
     private final Listener listener;
 
     private volatile boolean cancelled;
     private volatile InputStream body;
 
-    private ChatCompletion(JSONArray messages, String userName, int maxTokens, Listener listener) {
+    private ChatCompletion(JSONArray messages, String userName, List<String> otherNames, int maxTokens, String grammar, Listener listener) {
         this.messages = messages;
         this.userName = userName;
+        this.otherNames = List.copyOf(otherNames);
         this.maxTokens = maxTokens;
+        this.grammar = grammar;
         this.listener = listener;
     }
 
     // messages comes from PromptBuilder.build, userName is what the reply must not continue as
-    public static ChatCompletion start(JSONArray messages, String userName, int maxTokens, Listener listener) {
-        ChatCompletion completion = new ChatCompletion(messages, userName, maxTokens, listener);
+    public static ChatCompletion start(JSONArray messages, String userName, int maxTokens, String grammar, Listener listener) {
+        return start(messages, userName, List.of(), maxTokens, grammar, listener);
+    }
+
+    // For a group chat, otherNames are the characters the reply must not write for.
+    public static ChatCompletion start(JSONArray messages, String userName, List<String> otherNames, int maxTokens, String grammar, Listener listener) {
+        ChatCompletion completion = new ChatCompletion(messages, userName, otherNames, maxTokens, grammar, listener);
         Thread.ofVirtual().name("chat-completion").start(completion::run);
         return completion;
     }
@@ -208,6 +220,12 @@ public final class ChatCompletion {
         if (settings.dynatempRange.get() > 0) request.put("dynatemp_exponent", settings.dynatempExponent.get());
         putIfChanged(request, "seed", settings.seed);
 
+        // The grammar would hold the model's thinking to the format too, so thinking is turned off for this reply.
+        if (grammar != null && !settings.usesCloud()) {
+            request.put("grammar", grammar);
+            request.put("chat_template_kwargs", new JSONObject().put("enable_thinking", false));
+        }
+
         // End of turn tokens for the common templates in case the template doesn't stop on its own,
         // plus the user's name so a small model can't keep going and write the user's side.
         JSONArray stop = new JSONArray();
@@ -216,6 +234,7 @@ public final class ChatCompletion {
         stop.put("<|end_of_text|>");
         stop.put("</s>");
         stop.put("\n" + userName + ":");
+        for (String name : otherNames) stop.put("\n" + name + ":");
         request.put("stop", stop);
         return request;
     }

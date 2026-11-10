@@ -18,7 +18,9 @@ import java.util.stream.Stream;
 // Where characters and users live on disk. The folder is named by scrambling the id with the key, so the names people
 // gave things aren't readable from the file system. The id itself is kept inside the encrypted config file.
 public final class PrivateFolders {
+
     private PrivateFolders() {
+
     }
 
     // Encrypts characters and users saved by older versions, and their icons. The hubs only open them when they're

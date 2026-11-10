@@ -2,10 +2,13 @@ package me.piitex.cca.ui.creator;
 
 import com.drew.imaging.ImageProcessingException;
 import me.piitex.cca.App;
+import me.piitex.cca.backend.server.DialogueFormat;
 import me.piitex.cca.card.CardImporter;
 import me.piitex.cca.model.Character;
 import me.piitex.cca.model.User;
+import me.piitex.cca.theme.Palette;
 import me.piitex.cca.ui.Components;
+import me.piitex.cca.ui.GrammarChecker;
 import me.piitex.cca.ui.MainMenu;
 import me.piitex.engine.input.FileDialog;
 import me.piitex.engine.ui.Element;
@@ -15,6 +18,7 @@ import me.piitex.engine.ui.overlays.TextAreaOverlay;
 import me.piitex.engine.ui.overlays.TextFieldOverlay;
 import me.piitex.engine.ui.overlays.TextFlowOverlay;
 import me.piitex.engine.ui.overlays.TextOverlay;
+import me.piitex.engine.ui.overlays.ToggleSwitchOverlay;
 import me.piitex.engine.ui.scroll.ScrollContainer;
 
 import java.io.IOException;
@@ -23,6 +27,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Consumer;
 
 // Creates a new character, or edits one when a character is passed in.
 // Steps: details, lorebook, user, user lorebook, chat setup, finish. The character keeps its own copy of the user,
@@ -36,13 +41,20 @@ public class CharacterCreatorMenu extends CreatorMenu {
     private TextAreaOverlay personaField;
     private TextAreaOverlay firstMessageField;
     private TextAreaOverlay scenarioField;
+    private TextFieldOverlay replyFormatField;
+    private boolean strictFormat;
     private final LorebookStep lore;
+    private final PlaceholderList placeholders;
 
     // The person the character chats with, these are the character's own fields.
     private TextFieldOverlay userNameField;
     private TextAreaOverlay userPersonaField;
     private final LorebookStep userLore;
+    private final PlaceholderList userPlaceholders;
     private Path userIconFile;
+
+    // The picture behind this character's chats. Like the icon, it's only copied into the character's folder when they save.
+    private Path backgroundFile;
 
     // Templates to fill the user from, read once when the creator opens.
     private final List<User> users = new ArrayList<>(User.loadAll(App.environment));
@@ -57,32 +69,61 @@ public class CharacterCreatorMenu extends CreatorMenu {
         this(owner, null);
     }
 
+    // Set when duplicating: the fields start as a copy of this one, but it saves as a new character.
+    private final Character duplicateOf;
+
     public CharacterCreatorMenu(MainMenu owner, Character editing) {
+        this(owner, editing, null);
+    }
+
+    public static CharacterCreatorMenu duplicating(MainMenu owner, Character original) {
+        return new CharacterCreatorMenu(owner, null, original);
+    }
+
+    private CharacterCreatorMenu(MainMenu owner, Character editing, Character duplicateOf) {
         super(owner);
         this.editing = editing;
+        this.duplicateOf = duplicateOf;
         this.lore = new LorebookStep(this, owner);
         this.userLore = new LorebookStep(this, owner);
+        this.placeholders = new PlaceholderList(owner);
+        this.userPlaceholders = new PlaceholderList(owner);
         users.sort(Comparator.comparing(u -> u.getDisplayName().toLowerCase()));
         initFields();
-        if (editing != null) {
-            nameField.setText(editing.getDisplayName());
-            idField.setText(editing.getId());
-            idField.setReadOnly(true);
+        Character source = editing != null ? editing : duplicateOf;
+        if (source != null) {
+            GrammarChecker checker = GrammarChecker.shared();
+            if (checker != null) checker.allow(source.getDisplayName(), source.getUserName());
+            nameField.setText(source.getDisplayName());
+            if (editing != null) {
+                idField.setText(editing.getId());
+                idField.setReadOnly(true);
+            } else {
+                idField.setText(uniqueId(source.getId() + "-copy", candidate -> Character.exists(App.environment, candidate)));
+            }
             idEdited = true;
-            personaField.setText(editing.getPersona());
-            firstMessageField.setText(editing.getFirstMessage());
-            scenarioField.setText(editing.getChatScenario());
-            lore.entries().putAll(editing.getLorebook());
-            userNameField.setText(editing.getUserName());
-            userPersonaField.setText(editing.getUserPersona());
-            userLore.entries().putAll(editing.getUserLorebook());
-            Path userIcon = Path.of(editing.getUserIconPath());
+            personaField.setText(source.getPersona());
+            firstMessageField.setText(source.getFirstMessage());
+            scenarioField.setText(source.getChatScenario());
+            replyFormatField.setText(source.getReplyFormat());
+            strictFormat = source.isStrictFormat();
+            lore.entries().putAll(source.getLorebook());
+            placeholders.entries().putAll(source.getPlaceholders());
+            userPlaceholders.entries().putAll(source.getUserPlaceholders());
+            userNameField.setText(source.getUserName());
+            userPersonaField.setText(source.getUserPersona());
+            userLore.entries().putAll(source.getUserLorebook());
+            Path userIcon = Path.of(source.getUserIconPath());
             if (Files.isRegularFile(userIcon)) {
                 userIconFile = userIcon;
             }
-            Path icon = Path.of(editing.getIconPath());
+            Path icon = Path.of(source.getIconPath());
             if (Files.isRegularFile(icon)) {
                 pendingIconFile = icon;
+            }
+            Path background = source.getBackgroundFile();
+            if (background != null && Files.isRegularFile(background)) {
+                backgroundFile = background;
             }
         }
     }
@@ -128,39 +169,37 @@ public class CharacterCreatorMenu extends CreatorMenu {
         idField.setPlaceholder("auto-generated from name");
         idField.onTextChanged(text -> {
             idEdited = true;
-            error = null;
-            highlightSteps();
+            fieldEdited();
         });
 
         nameField = new TextFieldOverlay(10, 36);
         nameField.setPlaceholder("e.g. Aria");
         nameField.onTextChanged(text -> {
-            error = null;
             // setText doesn't fire idField's listener, so this can't flip idEdited on its own.
             if (!idEdited) {
                 idField.setText(slugify(text));
             }
-            highlightSteps();
+            fieldEdited();
         });
 
-        personaField = new TextAreaOverlay(10, 200);
+        personaField = Components.textArea(200);
         personaField.setPlaceholder("Personality, appearance, speech style...");
 
         userNameField = new TextFieldOverlay(10, 36);
         userNameField.setPlaceholder("e.g. Alex");
-        userNameField.onTextChanged(text -> {
-            error = null;
-            highlightSteps();
-        });
+        userNameField.onTextChanged(text -> fieldEdited());
 
-        userPersonaField = new TextAreaOverlay(10, 200);
+        userPersonaField = Components.textArea(200);
         userPersonaField.setPlaceholder("Personality, appearance, how you come across...");
 
-        firstMessageField = new TextAreaOverlay(10, 100);
+        firstMessageField = Components.textArea(100);
         firstMessageField.setPlaceholder("What they say to open the chat...");
 
-        scenarioField = new TextAreaOverlay(10, 100);
+        scenarioField = Components.textArea(100);
         scenarioField.setPlaceholder("The setting or situation for the chat...");
+
+        replyFormatField = new TextFieldOverlay(10, 36);
+        replyFormatField.setPlaceholder("e.g. {{char}}: \"What they say.\" *What they do.*");
     }
 
     private Element buildDetailsStep(double width, double height) {
@@ -175,7 +214,10 @@ public class CharacterCreatorMenu extends CreatorMenu {
         y = placeField(scroll, "Name", nameField, y, fieldWidth, 36);
         y = placeField(scroll, "Character ID", idField, y, fieldWidth, 36);
         y = placeIconField(scroll, y, fieldWidth);
-        placeField(scroll, "Persona", personaField, y, fieldWidth, 200);
+        y = placeBackgroundField(scroll, "Chat background (optional, used instead of the one from Settings)", y, fieldWidth,
+                backgroundFile, path -> backgroundFile = path);
+        y = placeField(scroll, "Persona", personaField, y, fieldWidth, 200);
+        placeholders.place(scroll, "the character's", y, fieldWidth);
         return scroll;
     }
 
@@ -221,6 +263,25 @@ public class CharacterCreatorMenu extends CreatorMenu {
             lore.entries().clear();
             lore.entries().putAll(data.lorebook());
         }
+        if (!data.placeholders().isEmpty()) {
+            placeholders.entries().clear();
+            placeholders.entries().putAll(data.placeholders());
+        }
+        if (!data.replyFormat().isEmpty()) {
+            replyFormatField.setText(data.replyFormat());
+            strictFormat = data.strictFormat();
+        }
+        if (data.background() != null) {
+            try {
+                // The editor works with files, the background is only copied into the character when it's saved.
+                Path file = Files.createTempFile("cca-background", ".img");
+                file.toFile().deleteOnExit();
+                Files.write(file, data.background());
+                backgroundFile = file;
+            } catch (IOException e) {
+                App.logger.error("Could not read the chat background of the card", e);
+            }
+        }
     }
 
     private Element buildChatStep(double width, double height) {
@@ -228,8 +289,54 @@ public class CharacterCreatorMenu extends CreatorMenu {
         double fieldWidth = fieldWidth(scroll, width);
 
         double y = placeField(scroll, "First message", firstMessageField, 0, fieldWidth, 100);
-        placeField(scroll, "Chat scenario", scenarioField, y, fieldWidth, 100);
+        y = placeField(scroll, "Chat scenario", scenarioField, y, fieldWidth, 100);
+        y = placeReplyFormat(scroll, y, fieldWidth);
+        placeToggle(scroll, "Strict", "Makes a local model follow the reply format every time. Thinking is skipped while it's on.", strictFormat,
+                on -> strictFormat = on, y, fieldWidth);
         return scroll;
+    }
+
+    // The example reply with a preset picker next to it that fills it in.
+    private double placeReplyFormat(ScrollContainer scroll, double y, double width) {
+        double pickerWidth = 230;
+        double next = placeField(scroll, "Reply format", replyFormatField, y, width - pickerWidth - 10, 36);
+
+        DropdownOverlay<DialogueFormat.Preset> presets = new DropdownOverlay<>(pickerWidth, 36);
+        presets.setFontSize(14f);
+        presets.setPlaceholder("Presets...");
+        presets.setLabelProvider(DialogueFormat.Preset::name);
+        presets.setItems(DialogueFormat.PRESETS);
+        presets.onSelect(preset -> {
+            presets.close();
+            replyFormatField.setText(preset.example());
+        });
+        presets.setPosition(width - pickerWidth, replyFormatField.getY());
+        scroll.addElement(presets);
+
+        TextFlowOverlay hint = new TextFlowOverlay("An example reply the character's replies follow. {{char}} is their name and "
+                + "the marks around each part carry over. Leave it empty to let the model write freely.", width, 13f, Palette.muted());
+        hint.setTextColor(Palette.muted());
+        hint.setPosition(0, next - 10);
+        scroll.addElement(hint);
+        return hint.getY() + hint.getHeight() + 18;
+    }
+
+    // A title and a hint on the left with the switch on the right. Returns the y for the next one.
+    private double placeToggle(ScrollContainer scroll, String label, String hint, boolean on, Consumer<Boolean> onToggle, double y, double width) {
+        ToggleSwitchOverlay toggle = new ToggleSwitchOverlay(44, 24, on);
+        toggle.setOnColor(Palette.accent());
+        toggle.onToggle(onToggle);
+        toggle.setPosition(width - toggle.getWidth(), y + 4);
+        scroll.addElement(toggle);
+
+        TextOverlay title = new TextOverlay(label, 15f, Palette.text());
+        title.setPosition(0, y);
+        scroll.addElement(title);
+        TextFlowOverlay hintText = new TextFlowOverlay(hint, width - toggle.getWidth() - 20, 13f, Palette.muted());
+        hintText.setTextColor(Palette.muted());
+        hintText.setPosition(0, y + title.getHeight() + 4);
+        scroll.addElement(hintText);
+        return hintText.getY() + hintText.getHeight() + 18;
     }
 
     // Who the character chats with. These are the character's own fields, a template only fills them in, so the character
@@ -257,7 +364,8 @@ public class CharacterCreatorMenu extends CreatorMenu {
 
         y = placeField(scroll, "Name", userNameField, y, fieldWidth, 36);
         y = placeIconField(scroll, y, fieldWidth, userIconFile, path -> userIconFile = path);
-        placeField(scroll, "Personality", userPersonaField, y, fieldWidth, 200);
+        y = placeField(scroll, "Personality", userPersonaField, y, fieldWidth, 200);
+        userPlaceholders.place(scroll, "the user's", y, fieldWidth);
         return scroll;
     }
 
@@ -268,6 +376,8 @@ public class CharacterCreatorMenu extends CreatorMenu {
             userPersonaField.setText(template.getPersona());
             userLore.entries().clear();
             userLore.entries().putAll(template.getLorebook());
+            userPlaceholders.entries().clear();
+            userPlaceholders.entries().putAll(template.getPlaceholders());
             Path icon = Path.of(template.getIconPath());
             userIconFile = Files.isRegularFile(icon) ? icon : null;
             error = null;
@@ -289,7 +399,7 @@ public class CharacterCreatorMenu extends CreatorMenu {
         double y = 0;
 
         String name = nameField.getText().trim();
-        TextOverlay nameText = new TextOverlay("Name: " + (name.isEmpty() ? "(not set)" : name), 15f, theme.getText());
+        TextOverlay nameText = new TextOverlay("Name: " + (name.isEmpty() ? "(not set)" : name), 15f, Palette.text());
         nameText.setPosition(0, y);
         scroll.addElement(nameText);
         y += nameText.getHeight() + 8;
@@ -298,13 +408,13 @@ public class CharacterCreatorMenu extends CreatorMenu {
                 + lore.entries().size() + (lore.entries().size() == 1 ? " lorebook entry" : " lorebook entries");
         String userName = userNameField.getText().trim();
         summary += " · chats as " + (userName.isEmpty() ? "(user not set)" : userName);
-        TextOverlay summaryText = new TextOverlay(summary, 12f, theme.getPlaceholderText());
+        TextOverlay summaryText = new TextOverlay(summary, 12f, Palette.muted());
         summaryText.setPosition(0, y);
         scroll.addElement(summaryText);
         y += summaryText.getHeight() + 14;
 
         String persona = personaField.getText().trim();
-        TextFlowOverlay personaPreview = new TextFlowOverlay(persona.isEmpty() ? "No persona set." : persona, fieldWidth, 13f, theme.getPlaceholderText());
+        TextFlowOverlay personaPreview = new TextFlowOverlay(persona.isEmpty() ? "No persona set." : persona, fieldWidth, 13f, Palette.muted());
         personaPreview.setPosition(0, y);
         scroll.addElement(personaPreview);
         y += personaPreview.getHeight() + 20;
@@ -319,19 +429,28 @@ public class CharacterCreatorMenu extends CreatorMenu {
         return scroll;
     }
 
+    // The character and its user each need a name, and a new character an id nobody has.
+    @Override
+    protected Problem findProblem() {
+        if (nameField.getText().trim().isEmpty()) {
+            return new Problem(DETAILS, nameField, "Character name is required.");
+        }
+        if (editing == null) {
+            String typedId = slugify(idField.getText().trim());
+            if (!typedId.isEmpty() && Character.exists(App.environment, typedId)) {
+                return new Problem(DETAILS, idField, "That character ID is already taken.");
+            }
+        }
+        if (userNameField.getText().trim().isEmpty()) {
+            return new Problem(USER, userNameField, "User name is required.");
+        }
+        return null;
+    }
+
     private void submit() {
+        if (!checkValid()) return;
         String name = nameField.getText().trim();
-        if (name.isEmpty()) {
-            error = "Name is required before creating.";
-            owner.renderContent();
-            return;
-        }
         String userName = userNameField.getText().trim();
-        if (userName.isEmpty()) {
-            error = "The user needs a name, fill in the User step.";
-            owner.renderContent();
-            return;
-        }
 
         Character character;
         String id;
@@ -340,26 +459,26 @@ public class CharacterCreatorMenu extends CreatorMenu {
             id = editing.getId();
         } else {
             String typedId = slugify(idField.getText().trim());
-            if (typedId.isEmpty()) {
-                id = uniqueId(name, candidate -> Character.exists(App.environment, candidate));
-            } else if (Character.exists(App.environment, typedId)) {
-                error = "That character ID is already taken.";
-                owner.renderContent();
-                return;
-            } else {
-                id = typedId;
-            }
+            id = typedId.isEmpty() ? uniqueId(name, candidate -> Character.exists(App.environment, candidate)) : typedId;
             character = new Character(App.environment, id);
         }
+
+        // Typed but never added would be lost otherwise.
+        placeholders.commit();
+        userPlaceholders.commit();
 
         character.setDisplayName(name);
         character.setPersona(personaField.getText().trim());
         character.setFirstMessage(firstMessageField.getText().trim());
         character.setChatScenario(scenarioField.getText().trim());
+        character.setReplyFormat(replyFormatField.getText().trim());
+        character.setStrictFormat(strictFormat);
         character.setUserName(userName);
         character.setUserPersona(userPersonaField.getText().trim());
         character.setUserLorebook(userLore.entries());
+        character.setUserPlaceholders(userPlaceholders.entries());
         character.setLorebook(lore.entries());
+        character.setPlaceholders(placeholders.entries());
         if (pendingIconFile != null) {
             try {
                 character.setIconFile(pendingIconFile);
@@ -371,6 +490,19 @@ public class CharacterCreatorMenu extends CreatorMenu {
                 character.clearIcon();
             } catch (IOException e) {
                 App.logger.error("Could not remove the icon of character '{}'", id, e);
+            }
+        }
+        if (backgroundFile != null) {
+            try {
+                character.setBackgroundFile(backgroundFile);
+            } catch (IOException e) {
+                App.logger.error("Could not copy the chat background for character '{}'", id, e);
+            }
+        } else if (editing != null) {
+            try {
+                character.clearBackground();
+            } catch (IOException e) {
+                App.logger.error("Could not remove the chat background of character '{}'", id, e);
             }
         }
         if (userIconFile != null) {
@@ -390,7 +522,7 @@ public class CharacterCreatorMenu extends CreatorMenu {
         if (editing != null) {
             owner.onCharacterEdited(character);
         } else {
-            owner.onCharacterCreated(character);
+            owner.onCharacterCreated(character, duplicateOf);
         }
     }
 }

@@ -11,12 +11,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Stream;
 
 // A character carries its own user: the name, personality, icon and lorebook of who it chats with. A user template only
@@ -26,6 +21,7 @@ import java.util.stream.Stream;
 public class Character implements HubItem {
     static final String ICON_FILE = "icon.enc";
     static final String USER_ICON_FILE = "user-icon.enc";
+    static final String BACKGROUND_FILE = "background.enc";
 
     private final String id;
     private final Path directory;
@@ -35,17 +31,28 @@ public class Character implements HubItem {
 
     // keyword, lore entry
     private final Map<String, String> lorebook = new LinkedHashMap<>();
+    // name, value. [name] in the chat or prompt turns into the value, see PromptBuilder.format.
+    private final Map<String, String> placeholders = new LinkedHashMap<>();
 
     private String displayName;
     private String persona;
     private String iconPath;
+    // The picture behind this character's chats, blank to use the one from Settings > Chat.
+    private String backgroundPath;
     private String firstMessage;
     private String chatScenario;
     private String userName;
     private String userPersona;
     private String userIconPath;
     private final Map<String, String> userLorebook = new LinkedHashMap<>();
+    private final Map<String, String> userPlaceholders = new LinkedHashMap<>();
     private boolean shownDisclaimer;
+    // An example reply the character's replies follow, like {{char}}: "What they say." *What they do.* Blank for none.
+    // Strict makes the local model follow it with a grammar, see DialogueFormat.
+    private String replyFormat;
+    private boolean strictFormat;
+
+    private static final TreeMap<String, Character> characters = new TreeMap<>();
 
     // Loads the character if it exists, otherwise creates the folders and a default character.conf.
     public Character(AppEnvironment environment, String id) {
@@ -65,12 +72,15 @@ public class Character implements HubItem {
                 c.setDefault("display-name", "");
                 c.setDefault("persona", "");
                 c.setDefault("icon-path", "");
+                c.setDefault("background-path", "");
                 c.setDefault("first-message", "");
                 c.setDefault("chat-scenario", "");
                 c.setDefault("user-name", "");
                 c.setDefault("user-persona", "");
                 c.setDefault("user-icon-path", "");
                 c.setDefault("shown-disclaimer", false);
+                c.setDefault("reply-format", "");
+                c.setDefault("strict-format", false);
             });
         } catch (IOException e) {
             throw new UncheckedIOException("Could not load character.conf for '" + id + "'", e);
@@ -79,15 +89,20 @@ public class Character implements HubItem {
         displayName = config.getString("display-name", "");
         persona = config.getString("persona", "");
         iconPath = config.getString("icon-path", "");
+        backgroundPath = config.getString("background-path", "");
         firstMessage = config.getString("first-message", "");
         chatScenario = config.getString("chat-scenario", "");
         userName = config.getString("user-name", "");
         userPersona = config.getString("user-persona", "");
         userIconPath = config.getString("user-icon-path", "");
         userLorebook.putAll(Lorebook.read(config, "user-"));
+        userPlaceholders.putAll(Lorebook.readPairs(config, "user-placeholder"));
         shownDisclaimer = config.getBoolean("shown-disclaimer", false);
+        replyFormat = config.getString("reply-format", "");
+        strictFormat = config.getBoolean("strict-format", false);
 
         lorebook.putAll(Lorebook.read(config));
+        placeholders.putAll(Lorebook.readPairs(config, "placeholder"));
 
         moveLinkedUser(environment);
         loadChats();
@@ -111,7 +126,7 @@ public class Character implements HubItem {
         if (!Files.isDirectory(chatDirectory)) return;
         try (Stream<Path> entries = Files.list(chatDirectory)) {
             for (Path file : entries.filter(Files::isRegularFile).sorted().toList()) {
-                chats.add(new Chat(file, crypter));
+                chats.add(new Chat(this, file, crypter));
             }
         } catch (IOException e) {
             App.logger.error("Could not list chats for character '{}'", id, e);
@@ -123,12 +138,18 @@ public class Character implements HubItem {
         return Files.isDirectory(environment.getDataPath("characters/" + PrivateFolders.folderName(environment, "character", id)));
     }
 
-    public static List<Character> loadAll(AppEnvironment environment) {
-        List<Character> characters = new ArrayList<>();
+    public static void loadAll(AppEnvironment environment) {
         for (String id : PrivateFolders.ids(environment, "characters", "character", "character.conf")) {
-            characters.add(new Character(environment, id));
+            characters.put(id, new Character(environment, id));
         }
         App.logger.info("Loaded {} characters.", characters.size());
+    }
+
+    public static Character getCharacter(String id) {
+        return characters.get(id);
+    }
+
+    public static TreeMap<String, Character> getCharacters() {
         return characters;
     }
 
@@ -200,6 +221,33 @@ public class Character implements HubItem {
         setIconPath("");
     }
 
+    // The file of this character's own chat background, or null when it uses the one from Settings.
+    public Path getBackgroundFile() {
+        if (backgroundPath == null || backgroundPath.isEmpty()) return null;
+        Path file = Path.of(backgroundPath);
+        // The data folder may have moved since it was saved, the file's name is all that's needed to find it again.
+        return Files.isRegularFile(file) ? file : directory.resolve(file.getFileName());
+    }
+
+    // Stores the image encrypted in the character's folder, like the icon.
+    public void setBackgroundFile(Path sourceFile) throws IOException {
+        Path dest = directory.resolve(BACKGROUND_FILE);
+        ProtectedImages.write(crypter, dest, sourceFile);
+        setBackgroundPath(dest.toString());
+    }
+
+    public void clearBackground() throws IOException {
+        Path file = getBackgroundFile();
+        if (file != null) Files.deleteIfExists(file);
+        setBackgroundPath("");
+    }
+
+    private void setBackgroundPath(String backgroundPath) {
+        this.backgroundPath = backgroundPath;
+        config.set("background-path", backgroundPath);
+        save();
+    }
+
     public Map<String, String> getLorebook() {
         return Collections.unmodifiableMap(lorebook);
     }
@@ -208,6 +256,17 @@ public class Character implements HubItem {
         lorebook.clear();
         lorebook.putAll(entries);
         Lorebook.write(config, lorebook);
+        save();
+    }
+
+    public Map<String, String> getPlaceholders() {
+        return Collections.unmodifiableMap(placeholders);
+    }
+
+    public void setPlaceholders(Map<String, String> entries) {
+        placeholders.clear();
+        placeholders.putAll(entries);
+        Lorebook.writePairs(config, "placeholder", placeholders);
         save();
     }
 
@@ -288,6 +347,17 @@ public class Character implements HubItem {
         save();
     }
 
+    public Map<String, String> getUserPlaceholders() {
+        return Collections.unmodifiableMap(userPlaceholders);
+    }
+
+    public void setUserPlaceholders(Map<String, String> entries) {
+        userPlaceholders.clear();
+        userPlaceholders.putAll(entries);
+        Lorebook.writePairs(config, "user-placeholder", userPlaceholders);
+        save();
+    }
+
     public boolean hasUser() {
         return !userName.isBlank();
     }
@@ -298,9 +368,12 @@ public class Character implements HubItem {
         userPersona = template.getPersona();
         userLorebook.clear();
         userLorebook.putAll(template.getLorebook());
+        userPlaceholders.clear();
+        userPlaceholders.putAll(template.getPlaceholders());
         config.set("user-name", userName);
         config.set("user-persona", userPersona);
         Lorebook.write(config, "user-", userLorebook);
+        Lorebook.writePairs(config, "user-placeholder", userPlaceholders);
         Path icon = Path.of(template.getIconPath());
         if (Files.isRegularFile(icon)) {
             try {
@@ -322,12 +395,32 @@ public class Character implements HubItem {
         save();
     }
 
+    public String getReplyFormat() {
+        return replyFormat;
+    }
+
+    public void setReplyFormat(String replyFormat) {
+        this.replyFormat = replyFormat;
+        config.set("reply-format", replyFormat);
+        save();
+    }
+
+    public boolean isStrictFormat() {
+        return strictFormat;
+    }
+
+    public void setStrictFormat(boolean strictFormat) {
+        this.strictFormat = strictFormat;
+        config.set("strict-format", strictFormat);
+        save();
+    }
+
     public List<Chat> getChats() {
         return List.copyOf(chats);
     }
 
-    public Chat createChat(String name) {
-        Chat chat = new Chat(getChatDirectory().resolve(name + ".dat"), crypter);
+    public Chat createChat(Character character, String name) {
+        Chat chat = new Chat(character, getChatDirectory().resolve(name + ".dat"), crypter);
         chats.add(chat);
         return chat;
     }
@@ -346,27 +439,5 @@ public class Character implements HubItem {
                 Files.delete(path);
             }
         }
-    }
-
-    // Chats are not copied, a duplicate starts fresh.
-    public Character duplicate(AppEnvironment environment, String newId) throws IOException {
-        Character copy = new Character(environment, newId);
-        copy.setDisplayName(displayName);
-        copy.setPersona(persona);
-        copy.setFirstMessage(firstMessage);
-        copy.setChatScenario(chatScenario);
-        copy.setUserName(userName);
-        copy.setUserPersona(userPersona);
-        copy.setUserLorebook(userLorebook);
-        Path userIcon = Path.of(getUserIconPath());
-        if (Files.isRegularFile(userIcon)) {
-            copy.setUserIconFile(userIcon);
-        }
-        copy.setLorebook(lorebook);
-        Path icon = Path.of(getIconPath());
-        if (Files.isRegularFile(icon)) {
-            copy.setIconFile(icon);
-        }
-        return copy;
     }
 }

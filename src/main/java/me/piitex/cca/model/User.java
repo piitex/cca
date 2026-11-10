@@ -31,6 +31,8 @@ public class User implements HubItem {
 
     // keyword, lore entry
     private final Map<String, String> lorebook = new LinkedHashMap<>();
+    // name, value. [name] in the chat or prompt turns into the value, see PromptBuilder.format.
+    private final Map<String, String> placeholders = new LinkedHashMap<>();
 
     private String displayName;
     private String persona;
@@ -60,6 +62,7 @@ public class User implements HubItem {
         persona = config.getString("persona", "");
         iconPath = config.getString("icon-path", "");
         lorebook.putAll(Lorebook.read(config));
+        placeholders.putAll(Lorebook.readPairs(config, "placeholder"));
     }
 
     public static boolean exists(AppEnvironment environment, String id) {
@@ -155,6 +158,17 @@ public class User implements HubItem {
         save();
     }
 
+    public Map<String, String> getPlaceholders() {
+        return Collections.unmodifiableMap(placeholders);
+    }
+
+    public void setPlaceholders(Map<String, String> entries) {
+        placeholders.clear();
+        placeholders.putAll(entries);
+        Lorebook.writePairs(config, "placeholder", placeholders);
+        save();
+    }
+
     // Deletes the user's folder. Don't use this instance afterwards.
     public void delete() throws IOException {
         App.logger.info("Deleting user '{}'", id);
@@ -163,17 +177,5 @@ public class User implements HubItem {
                 Files.delete(path);
             }
         }
-    }
-
-    public User duplicate(AppEnvironment environment, String newId) throws IOException {
-        User copy = new User(environment, newId);
-        copy.setDisplayName(displayName);
-        copy.setPersona(persona);
-        copy.setLorebook(lorebook);
-        Path icon = Path.of(getIconPath());
-        if (Files.isRegularFile(icon)) {
-            copy.setIconFile(icon);
-        }
-        return copy;
     }
 }

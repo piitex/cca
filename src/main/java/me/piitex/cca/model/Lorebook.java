@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 // Keyword, entry pairs for characters and users. The config only holds scalar lists, so it's stored as two lists side by side.
+// Placeholders are stored the same way under their own name.
 final class Lorebook {
     private Lorebook() {
     }
@@ -18,9 +19,14 @@ final class Lorebook {
 
     // The prefix lets one config hold two lorebooks, a character's and its user's.
     static Map<String, String> read(Config config, String prefix) {
+        return readPairs(config, prefix + "lorebook");
+    }
+
+    // Any key, value map stored as name-keys and name-values.
+    static Map<String, String> readPairs(Config config, String name) {
         Map<String, String> entries = new LinkedHashMap<>();
-        List<String> keys = config.getStringList(prefix + "lorebook-keys");
-        List<String> values = config.getStringList(prefix + "lorebook-values");
+        List<String> keys = config.getStringList(name + "-keys");
+        List<String> values = config.getStringList(name + "-values");
         for (int i = 0; i < keys.size(); i++) {
             entries.put(keys.get(i), i < values.size() ? values.get(i) : "");
         }
@@ -32,8 +38,12 @@ final class Lorebook {
     }
 
     static void write(Config config, String prefix, Map<String, String> entries) {
+        writePairs(config, prefix + "lorebook", entries);
+    }
+
+    static void writePairs(Config config, String name, Map<String, String> entries) {
         List<String> keys = new ArrayList<>(entries.keySet());
-        config.set(prefix + "lorebook-keys", keys);
-        config.set(prefix + "lorebook-values", keys.stream().map(entries::get).toList());
+        config.set(name + "-keys", keys);
+        config.set(name + "-values", keys.stream().map(entries::get).toList());
     }
 }
