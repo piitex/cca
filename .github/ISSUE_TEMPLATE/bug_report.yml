@@ -1,0 +1,54 @@
+name: Bug report
+description: Something in CCA does not work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Remove private information** (chats, file paths, keys, tokens) from anything you paste.
+        Security problems go through [SECURITY.md](https://github.com/piitex/cca/security/policy), not here.
+  - type: input
+    id: version
+    attributes:
+      label: CCA version
+      placeholder: "1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [Windows, Linux, macOS (Apple silicon), macOS (Intel)]
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install it?
+      options: [Installer, Archive (tar.gz), Built from source]
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: How are you running models?
+      options: [Local model (llama.cpp), Server on my network, Cloud endpoint, Not applicable]
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open ...\n2. Click ...\n3. See ..."
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Include the relevant part of the log files from CCA's data folder, if there are any.
+      render: text
