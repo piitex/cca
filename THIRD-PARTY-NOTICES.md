@@ -28,7 +28,7 @@ bundled in the installers too.
 |---|---|---|
 | `src/main/resources/fonts/Roboto-Regular.ttf` | [Roboto](https://fonts.google.com/specimen/Roboto), Google | Apache-2.0 |
 | `src/main/resources/images/icon.png`, `packaging/icons/` | CCA | MIT |
-| `src/main/resources/images/avatar_example.jpeg` | **TODO: add the source and license** | |
+| `src/main/resources/images/avatar_example.jpeg` | CCA (generated placeholder) | MIT |
 
 The full Apache License 2.0 text is at <https://www.apache.org/licenses/LICENSE-2.0.txt>.
 
