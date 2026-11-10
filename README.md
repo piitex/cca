@@ -73,8 +73,8 @@ installed copy.
 ### Building the installers
 
 The installers are built with the RenGL packager, configured in
-[`rengl-package.properties`](rengl-package.properties). Set `RENGL_PACKAGER` to your RenGL checkout's
-`rengl-packager` folder, then run:
+[`rengl-package.properties`](rengl-package.properties). Clone RenGL next to this project (so it is at
+`../RenGL`), or set `RENGL_PACKAGER` to your RenGL checkout's `rengl-packager` folder, then run:
 
 ```bash
 package.cmd -Installer true
